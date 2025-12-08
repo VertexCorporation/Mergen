@@ -1,0 +1,1822 @@
+# MERGEN
+# config.py
+import torch
+
+# --- 1. HARDWARE ---
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.float32
+
+# --- 2. ANATOMY SCALE ---
+H_CORTEX = 320   
+W_CORTEX = 320  
+N_NEURONS = H_CORTEX * W_CORTEX  # ~102k Nöron
+# Chat için kelime haznesi kadar sınıf lazım, şimdilik 50 diyelim
+N_CLASSES = 50  
+
+# --- 3. MEMORY SYSTEM ---
+MEMORY_CAPACITY = 5000  
+SIMILARITY_THRESHOLD = 0.85 # Biraz daha esnek olsun, hemen hatırlasın
+
+# --- 4. PHYSICS (TIME) ---
+DT = 1.0           
+TAU_MEM = 5.0      # Çok hızlı tepki
+TAU_ADAPT = 50.0   # Çabuk toparlanma
+TAU_SYN = 5.0      
+
+# --- 5. CONNECTIVITY ---
+EXC_SIGMA = 2.0    
+INH_SIGMA = 5.0    
+EXC_GAIN = 50.0    # 10 -> 50 (Sinyali patlat!)
+INH_GAIN = 5.0     
+
+# --- 6. GLOBAL WORKSPACE ---
+N_BUNDLES = 256    
+BUNDLE_GAIN = 200.0 # Global yayın çok güçlü olmalı
+
+# --- 7. DIRECT PATHWAY (SPARSE) ---
+SYNAPSES_PER_NEURON = 100 # VRAM dostu
+
+# --- 8. NEURON DYNAMICS ---
+THETA_BASE = 0.05  # Eşik çok düşük, hemen ateşlesin
+GLOBAL_INH = 0.0   
+K_ADAPT = 1.0      
+V_RESET = 0.0      
+THETA_DECAY = 0.95 
+
+# --- 9. LEARNING ---
+LEARNING_RATE_CORTEX = 0.1  
+LEARNING_RATE_MEMORY = 1.0   
+TARGET_RATE = 0.05 
+HOMEOSTATIC_LR = 0.01
+
+# --- 10. STABILITY ---
+TARGET_RATE = 0.05 
+HOMEOSTATIC_LR = 0.01# main.py
+
+"""
+MERGEN V3 - TRAINING LOOP (HEADLESS + TELEMETRY)
+
+This script wires together the full MERGEN V3 cognitive architecture and
+runs an open-ended training loop on a simple symbolic math task
+(e.g., "3 + 5" → 8).
+
+Key components used here:
+- CorticalLayer (sensory + motor): 2D spiking cortical sheets
+- GlobalWorkspace: low-rank global routing / attention
+- Sparse Direct Pathway: fast point-to-point motor drive
+- Hippocampus: fast episodic key–value memory
+- HomeostaticRegulator: keeps firing rates near a target regime
+- SpikeEncoder: turns text into spatiotemporal input currents
+- MathTeacher: generates arithmetic questions and labels
+- TelemetryBox: logs activity, performance, and snapshots for analysis
+
+All plotting is disabled in this loop. Instead, telemetry is written to
+`logs/` and can be analyzed offline via `visualization/analyze_logs.py`.
+"""
+
+import os
+import time
+from typing import Tuple, Optional
+
+import numpy as np
+import torch
+
+import config as cfg
+from anatomy.cortical_sheet import CorticalLayer
+from anatomy.hippocampus import Hippocampus
+from connectivity.kernels import MexicanHatKernel
+from connectivity.global_workspace import GlobalWorkspace
+from utils.encoder import SpikeEncoder
+from utils.stability import HomeostaticRegulator
+from utils.telemetry import TelemetryBox
+from datasets.generators.math_teacher import MathTeacher
+
+
+class MergenCognitiveArchitecture:
+    """
+    High-level container for the MERGEN cognitive engine.
+
+    This class:
+    - Instantiates all major brain components.
+    - Holds long-lived state traces (sensory + motor).
+    - Implements a single forward step and learning update.
+    - Handles saving/loading of the "brain state" (weights + memory).
+    """
+
+    def __init__(self) -> None:
+        print(f"🧠 Assembling MERGEN V3 on device: {cfg.DEVICE}")
+        print(f"📐 Cortex resolution: {cfg.H_CORTEX} x {cfg.W_CORTEX} "
+              f"({cfg.N_NEURONS} neurons per layer)")
+
+        # 1. CORTICAL LAYERS (Sensory + Motor)
+        kernel_t = MexicanHatKernel.create(
+            cfg.H_CORTEX,
+            cfg.W_CORTEX,
+            exc_sigma=cfg.EXC_SIGMA,
+            inh_sigma=cfg.INH_SIGMA,
+            exc_gain=cfg.EXC_GAIN,
+            inh_gain=cfg.INH_GAIN,
+            device=cfg.DEVICE,
+        )
+
+        self.sensory = CorticalLayer(
+            cfg.H_CORTEX,
+            cfg.W_CORTEX,
+            cfg.DT,
+            kernel_t,
+            device=cfg.DEVICE,
+        )
+
+        self.motor = CorticalLayer(
+            cfg.H_CORTEX,
+            cfg.W_CORTEX,
+            cfg.DT,
+            kernel_t,
+            device=cfg.DEVICE,
+        )
+
+        # 2. GLOBAL WORKSPACE
+        self.workspace = GlobalWorkspace(
+            input_dim=cfg.N_NEURONS,
+            workspace_dim=cfg.N_BUNDLES,
+            output_dim=cfg.N_NEURONS,
+            device=cfg.DEVICE,
+        )
+
+        # 3. DIRECT SPARSE PATHWAY (Fast sensorimotor shortcut)
+        print("🔗 Building sparse direct pathway...")
+        n_synapses = cfg.N_NEURONS * cfg.SYNAPSES_PER_NEURON
+
+        # Each neuron gets SYNAPSES_PER_NEURON outgoing synapses
+        rows = torch.arange(
+            cfg.N_NEURONS,
+            device=cfg.DEVICE,
+        ).repeat_interleave(cfg.SYNAPSES_PER_NEURON)
+
+        # Random destinations for each synapse
+        cols = torch.randint(
+            0,
+            cfg.N_NEURONS,
+            (n_synapses,),
+            device=cfg.DEVICE,
+        )
+
+        # (2, n_synapses) index tensor for a sparse COO matrix
+        self.sm_indices = torch.stack([rows, cols])
+
+        # Initial synaptic weights for the sparse pathway
+        self.sm_values = torch.randn(
+            n_synapses,
+            device=cfg.DEVICE,
+        ) * 0.5
+
+        # 4. HIPPOCAMPUS (Episodic memory: sensory trace → class vector)
+        self.hippocampus = Hippocampus(
+            input_dim=cfg.N_NEURONS,
+            value_dim=cfg.N_CLASSES,
+            memory_capacity=cfg.MEMORY_CAPACITY,
+            threshold=cfg.SIMILARITY_THRESHOLD,
+            device=cfg.DEVICE,
+        )
+
+        # 5. READOUT & STABILITY
+        # Motor trace → class logits
+        self.W_readout = torch.randn(
+            (cfg.N_NEURONS, cfg.N_CLASSES),
+            device=cfg.DEVICE,
+        ) * 0.1
+
+        # Global homeostatic regulator (shared threshold tuning)
+        self.regulator = HomeostaticRegulator(
+            n_neurons=cfg.N_NEURONS,
+            target_rate=cfg.TARGET_RATE,
+            adjustment_speed=cfg.HOMEOSTATIC_LR,
+            device=cfg.DEVICE,
+        )
+
+        # 6. TRACES (slow state summaries over time)
+        self.trace_sensory = torch.zeros(cfg.N_NEURONS, device=cfg.DEVICE)
+        self.trace_motor = torch.zeros(cfg.N_NEURONS, device=cfg.DEVICE)
+
+    # --------------------------------------------------------------------- #
+    # STATE MANAGEMENT
+    # --------------------------------------------------------------------- #
+
+    def reset_state(self) -> None:
+        """
+        Clears fast dynamical state between episodes.
+
+        This acts a bit like a "sleep reset":
+        - Clears voltages and spikes in both cortical layers.
+        - Clears workspace activation.
+        - Resets trace vectors.
+        """
+        self.sensory.v.fill_(cfg.V_RESET)
+        self.motor.v.fill_(cfg.V_RESET)
+
+        self.sensory.spikes.zero_()
+        self.motor.spikes.zero_()
+
+        self.trace_sensory.zero_()
+        self.trace_motor.zero_()
+
+        self.workspace.state.zero_()
+
+    # --------------------------------------------------------------------- #
+    # FORWARD DYNAMICS
+    # --------------------------------------------------------------------- #
+
+    def forward_pass(
+        self,
+        input_frame: torch.Tensor,
+    ) -> Tuple[Optional[torch.Tensor], float]:
+        """
+        Single simulation step.
+
+        Pipeline:
+        1. Feed input into sensory cortex.
+        2. Update sensory trace.
+        3. Query hippocampus with sensory trace.
+        4. Propagate through global workspace.
+        5. Add sparse direct pathway drive.
+        6. Update motor cortex + motor trace.
+        7. Occasionally apply homeostatic threshold updates.
+
+        Args:
+            input_frame: Tensor of shape (N_NEURONS,) or (H, W).
+
+        Returns:
+            mem_vec: Retrieved value vector from hippocampus, or None.
+            mem_conf: Similarity score for the best memory match.
+        """
+        # Ensure 2D shape
+        input_2d = input_frame.view(cfg.H_CORTEX, cfg.W_CORTEX)
+
+        # 1) Sensory cortex dynamics
+        spikes_s = self.sensory(input_2d * 2.0)  # input gain = 2.0
+        self.trace_sensory = (
+            0.95 * self.trace_sensory + 0.05 * spikes_s.flatten()
+        )
+
+        # 2) Episodic memory query
+        mem_vec, mem_conf = self.hippocampus.retrieve(self.trace_sensory)
+
+        # 3) Global Workspace broadcast
+        gw_out = self.workspace(spikes_s.flatten().unsqueeze(0))
+        gw_drive = gw_out.view(cfg.H_CORTEX, cfg.W_CORTEX) * cfg.BUNDLE_GAIN
+
+        # 4) Sparse direct sensorimotor pathway
+        if spikes_s.sum() > 0:
+            sparse_W = torch.sparse_coo_tensor(
+                self.sm_indices,
+                self.sm_values,
+                (cfg.N_NEURONS, cfg.N_NEURONS),
+            )
+            direct_signal = torch.sparse.mm(
+                sparse_W.t(),  # shape (N, N)
+                spikes_s.flatten().unsqueeze(1),
+            ).squeeze(1)
+
+            direct_drive = direct_signal.view(
+                cfg.H_CORTEX,
+                cfg.W_CORTEX,
+            ) * 3.0  # direct gain
+        else:
+            direct_drive = torch.zeros(
+                (cfg.H_CORTEX, cfg.W_CORTEX),
+                device=cfg.DEVICE,
+            )
+
+        # 5) Motor cortex dynamics
+        spikes_m = self.motor(gw_drive + direct_drive)
+        self.trace_motor = (
+            0.95 * self.trace_motor + 0.05 * spikes_m.flatten()
+        )
+
+        # 6) Homeostasis (sampled update to avoid overhead)
+        if np.random.random() < 0.01:
+            # Flatten thresholds, update, then reshape to 2D
+            new_theta_sens = self.regulator.update(
+                current_spikes=spikes_s.flatten(),
+                current_thresholds=self.sensory.theta.flatten(),
+            ).view(cfg.H_CORTEX, cfg.W_CORTEX)
+
+            new_theta_motor = self.regulator.update(
+                current_spikes=spikes_m.flatten(),
+                current_thresholds=self.motor.theta.flatten(),
+            ).view(cfg.H_CORTEX, cfg.W_CORTEX)
+
+            self.sensory.theta = new_theta_sens
+            self.motor.theta = new_theta_motor
+
+        return mem_vec, float(mem_conf)
+
+    # --------------------------------------------------------------------- #
+    # READOUT + LEARNING
+    # --------------------------------------------------------------------- #
+
+    def predict(self) -> torch.Tensor:
+        """
+        Computes class probabilities from the current motor trace.
+
+        Returns:
+            probs: Tensor of shape (N_CLASSES,) (softmax over logits).
+        """
+        logits = torch.matmul(self.trace_motor, self.W_readout)
+        return torch.softmax(logits, dim=0)
+
+    def learn(self, target_class: int, use_memory: bool = True) -> None:
+        """
+        Updates:
+        - Readout weights (motor_trace → class).
+        - Sparse direct pathway weights (Hebbian style).
+        - Episodic memory (sensory trace → one-hot class).
+
+        Args:
+            target_class: Correct class index in [0, N_CLASSES).
+            use_memory: If True, store the episode in hippocampus.
+        """
+        # --- 1) Readout learning (simple delta rule) ---
+        target_vec = torch.zeros(cfg.N_CLASSES, device=cfg.DEVICE)
+        target_vec[target_class] = 1.0
+
+        pred = self.predict()
+        error = target_vec - pred
+
+        self.W_readout += cfg.LEARNING_RATE_CORTEX * torch.outer(
+            self.trace_motor,
+            error,
+        )
+
+        # --- 2) Sparse Hebbian update on direct pathway ---
+        target_motor = self.W_readout[:, target_class]
+        motor_error = target_motor - self.trace_motor
+
+        rows, cols = self.sm_indices
+        hebbian_update = self.trace_sensory[rows] * motor_error[cols]
+        self.sm_values += 0.05 * hebbian_update  # fixed local learning rate
+
+        # --- 3) Episodic storage ---
+        if use_memory:
+            self.hippocampus.store(self.trace_sensory, target_vec)
+
+    # --------------------------------------------------------------------- #
+    # PERSISTENCE
+    # --------------------------------------------------------------------- #
+
+    def save_brain(self, filepath: str = "mergen.mx") -> None:
+        """
+        Saves core brain parameters (readout, sparse pathway, memory).
+        """
+        state = {
+            "W_readout": self.W_readout,
+            "sm_values": self.sm_values,
+            "hippo_keys": self.hippocampus.keys,
+            "hippo_vals": self.hippocampus.values,
+            "hippo_size": self.hippocampus.size,
+        }
+        torch.save(state, filepath)
+        print(f"💾 Brain snapshot saved: {filepath}")
+
+    def load_brain(self, filepath: str = "mergen.mx") -> None:
+        """
+        Loads brain parameters if a snapshot exists.
+        """
+        if not os.path.exists(filepath):
+            print("ℹ️ No existing brain snapshot found. Starting fresh.")
+            return
+
+        print(f"📂 Loading brain snapshot from: {filepath} ...")
+        s = torch.load(filepath, map_location=cfg.DEVICE)
+
+        if "W_readout" in s and s["W_readout"].shape == self.W_readout.shape:
+            self.W_readout = s["W_readout"].to(cfg.DEVICE)
+            self.sm_values = s["sm_values"].to(cfg.DEVICE)
+            self.hippocampus.keys = s["hippo_keys"].to(cfg.DEVICE)
+            self.hippocampus.values = s["hippo_vals"].to(cfg.DEVICE)
+            self.hippocampus.size = int(s["hippo_size"])
+            print("✅ Brain state successfully restored.")
+        else:
+            print("⚠️ Snapshot shape mismatch. Starting from scratch.")
+
+
+# ------------------------------------------------------------------------- #
+# TRAINING LOOP
+# ------------------------------------------------------------------------- #
+
+
+def run_training() -> None:
+    """
+    Main training loop.
+
+    At each episode:
+    1. Reset fast state.
+    2. Sample a math problem from the teacher.
+    3. Encode text to spike-like input currents.
+    4. Run the cortical+workspace+memory dynamics over time.
+    5. Decide the answer (hippocampus if confident, else cortex).
+    6. Apply learning updates.
+    7. Log telemetry (activity, accuracy, memory usage, latency).
+
+    Training continues until interrupted (Ctrl+C).
+    """
+    # Disable autograd everywhere (we use local plasticity, no backprop)
+    torch.set_grad_enabled(False)
+
+    brain = MergenCognitiveArchitecture()
+    brain.load_brain()
+
+    encoder = SpikeEncoder(cfg.N_NEURONS, device=cfg.DEVICE)
+    teacher = MathTeacher(cfg.N_NEURONS)
+
+    telemetry = TelemetryBox(run_name="training_session_v3")
+
+    print("\n⚡ MERGEN V3 TRAINING STARTED (log-only mode)")
+    print("   Press Ctrl+C to stop and save.\n")
+
+    episode = 0
+    history = []
+
+    try:
+        while True:
+            episode += 1
+            brain.reset_state()
+            ep_start = time.time()
+
+            # 1) Sample a problem
+            _, target_class, problem_text = teacher.generate_sample()
+
+            # 2) Encode as input stream (Time x N_NEURONS)
+            input_stream = encoder.encode_text(
+                text=problem_text,
+                duration_steps=500,  # shorter episodes for faster training
+            )
+            T = len(input_stream)
+            learn_phase = int(T * 0.9)
+
+            final_pred = -1
+            mem_active = False
+
+            # 3) Simulate episode
+            for t in range(T):
+                mem_vec, mem_conf = brain.forward_pass(input_stream[t])
+
+                # Decision point (just before learning window)
+                if t == learn_phase - 1:
+                    cortical_probs = brain.predict()
+
+                    if mem_vec is not None and mem_conf > cfg.SIMILARITY_THRESHOLD:
+                        # Use episodic memory as primary prediction
+                        final_pred = torch.argmax(mem_vec).item()
+                        mem_active = True
+                    else:
+                        # Fall back to cortical readout
+                        final_pred = torch.argmax(cortical_probs).item()
+
+                # Learning window (end of episode)
+                if t >= learn_phase:
+                    brain.learn(target_class)
+
+            # 4) Episode statistics
+            is_correct = (final_pred == target_class)
+            history.append(1 if is_correct else 0)
+            if len(history) > 100:
+                history.pop(0)
+
+            avg_acc = float(np.mean(history) * 100.0)
+            ep_duration = time.time() - ep_start
+
+            # 5) Telemetry logging (only final state of episode)
+            telemetry.log_step(
+                step=episode,
+                sensory=brain.sensory.spikes,
+                motor=brain.motor.spikes,
+                workspace=brain.workspace.state,
+                acc=avg_acc,
+                mem_hit=mem_active,
+                duration=ep_duration,
+            )
+
+            # 6) Periodic snapshot + console status
+            if episode % 50 == 0:
+                telemetry.take_snapshot(
+                    episode,
+                    brain.sensory.spikes,
+                    brain.motor.spikes,
+                )
+                brain.save_brain()
+
+                status = "✅" if is_correct else "❌"
+                src = "MEM" if mem_active else "CTX"
+                print(
+                    f"Ep {episode:04d} | Q: {problem_text} "
+                    f"| Acc(100ep): {avg_acc:.1f}% "
+                    f"| {status} {src} "
+                    f"| ⏱️ {ep_duration:.3f}s",
+                )
+
+    except KeyboardInterrupt:
+        print("\n🛑 Training interrupted by user.")
+        brain.save_brain()
+        telemetry.save_report()
+        print("📊 Telemetry saved. You can inspect it with:")
+        print("   python -m visualization.analyze_logs training_session_v3")
+
+
+if __name__ == "__main__":
+    run_training()"""
+MERGEN V3 - MATH TEACHER
+Generates symbolic arithmetic problems.
+
+Unlike V1/V2, this module DOES NOT generate signals.
+It only generates the abstract problem (Text + Target).
+The Brain's own 'SpikeEncoder' handles the signal conversion.
+"""
+
+import random
+
+class MathTeacher:
+    def __init__(self, n_neurons=None, duration_ms=1000):
+        # n_neurons is kept for compatibility but not used here anymore
+        # duration_ms is also handled by the brain's encoder
+        self.operations = ['+'] 
+        
+    def generate_sample(self):
+        """
+        Generates a random addition problem.
+        
+        Returns:
+            input_signal: None (Handled by Brain's Encoder)
+            target_class: int (The correct answer, e.g., 8)
+            problem_text: str (The question, e.g., "3 + 5")
+        """
+        # Generate numbers (0-9)
+        # Result will be between 0 and 18.
+        # Mergen is configured for 20 classes, so this fits perfectly.
+        a = random.randint(0, 9)
+        b = random.randint(0, 9)
+        
+        op = '+'
+        result = a + b
+        
+        # Format: "3 + 5"
+        # The encoder will turn this string into neural spikes.
+        problem_text = f"{a} {op} {b}"
+        
+        # The target class is the integer result
+        target_class = int(result)
+        
+        # We return None for the first argument because V3 main.py 
+        # expects 3 values but generates the signal itself.
+        return None, target_class, problem_text
+
+    def get_batch(self, batch_size=1):
+        """Helper for batch testing if needed."""
+        targets = []
+        texts = []
+        for _ in range(batch_size):
+            _, tar, txt = self.generate_sample()
+            targets.append(tar)
+            texts.append(txt)
+        return None, targets, texts"""
+MERGEN ENGINE MODULE
+The physical substrate of the Cognitive Engine.
+
+This module handles:
+1. Tensor Operations (GPU-accelerated math)
+2. Numerical Integration (Making time flow)
+3. Delay Management (The speed of light in the brain)
+"""
+
+from .tensor_ops import fft_convolve2d, normalize_tensor
+from .integrators import EulerSolver, RungeKutta4Solver
+from .delays import DelayBufferimport torch
+import torch.fft
+
+def fft_convolve2d(input_field: torch.Tensor, kernel_fft: torch.Tensor) -> torch.Tensor:
+    """
+    Performs a 2D Circular Convolution using the Fast Fourier Transform (FFT).
+    
+    Why this is legendary:
+    Standard convolution is O(N^2). This is O(N log N).
+    This allows us to simulate MILLIONS of neurons interacting locally 
+    (Mexican Hat interaction) without crashing the computer.
+    
+    Args:
+        input_field: The current voltage state of the cortex (Batch, H, W).
+        kernel_fft: The pre-computed FFT of the connectivity kernel.
+        
+    Returns:
+        The synaptic input current resulting from local field interactions.
+    """
+    # 1. Convert input to Frequency Domain
+    input_fft = torch.fft.rfft2(input_field)
+    
+    # 2. Multiply in Frequency Domain (This equals convolution in Space Domain)
+    # We assume the kernel is already in the frequency domain for speed.
+    convolved_fft = input_fft * kernel_fft
+    
+    # 3. Convert back to Space Domain (Real numbers)
+    output_field = torch.fft.irfft2(convolved_fft, s=input_field.shape[-2:])
+    
+    return output_field
+
+def normalize_tensor(x: torch.Tensor, min_val: float = 0.0, max_val: float = 1.0) -> torch.Tensor:
+    """
+    Keeps the brain energy within physical limits.
+    Prevents "Runaway Excitation" (Epilepsy).
+    """
+    return torch.clamp(x, min_val, max_val)
+
+def sparse_mask_projection(source: torch.Tensor, indices: torch.Tensor, values: torch.Tensor, output_shape: tuple) -> torch.Tensor:
+    """
+    Handles Long-Range connections (The White Matter).
+    Instead of a dense matrix, we use sparse gathering for global communication.
+    
+    Args:
+        source: Activity of source neurons.
+        indices: Connection map (Who connects to whom).
+        values: Synaptic weights.
+    """
+    # Create a sparse tensor representing long-range tracts
+    sparse_adj = torch.sparse_coo_tensor(indices, values, size=(source.shape[0], output_shape[0]))
+    
+    # Efficient Sparse Matrix-Vector Multiplication (SpMM)
+    return torch.sparse.mm(sparse_adj.t(), source.unsqueeze(1)).squeeze(1)import torch
+from typing import Callable
+
+class BaseIntegrator:
+    """Base class for time-stepping algorithms."""
+    def step(self, state: torch.Tensor, dynamics_func: Callable, dt: float) -> torch.Tensor:
+        raise NotImplementedError
+
+class EulerSolver(BaseIntegrator):
+    """
+    First-order Euler integration.
+    Fast, simple, good for standard spiking neurons (LIF).
+    Formula: X_new = X_old + (dX/dt * dt)
+    """
+    def step(self, state: torch.Tensor, dynamics_func: Callable, dt: float) -> torch.Tensor:
+        d_state_dt = dynamics_func(state)
+        return state + (d_state_dt * dt)
+
+class RungeKutta4Solver(BaseIntegrator):
+    """
+    Fourth-order Runge-Kutta (RK4).
+    
+    Why this is legendary:
+    Biological oscillators (like Hodgkin-Huxley or Resonators) are very sensitive.
+    Euler method makes them unstable. RK4 is extremely precise.
+    It samples the slope at 4 different points to predict the future perfectly.
+    
+    Essential for generating stable Gamma/Theta rhythms.
+    """
+    def step(self, state: torch.Tensor, dynamics_func: Callable, dt: float) -> torch.Tensor:
+        k1 = dynamics_func(state)
+        k2 = dynamics_func(state + 0.5 * dt * k1)
+        k3 = dynamics_func(state + 0.5 * dt * k2)
+        k4 = dynamics_func(state + dt * k3)
+        
+        return state + (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)import torch
+
+class DelayBuffer:
+    """
+    A Ring-Buffer mechanism to simulate axonal transmission delays.
+    
+    In the brain, a signal from the visual cortex takes ~10ms to reach the frontal lobe.
+    This class manages that history.
+    """
+    def __init__(self, n_neurons: int, max_delay_steps: int, device='cpu'):
+        """
+        Args:
+            n_neurons: Total number of neurons in the layer.
+            max_delay_steps: The maximum memory depth (in time steps).
+                             If dt=1ms and max delay=100ms, this is 100.
+        """
+        self.max_delay = max_delay_steps
+        self.n_neurons = n_neurons
+        self.device = device
+        
+        # The Buffer: [Time, Neurons]
+        # We initialized it with zeros (silence).
+        self.buffer = torch.zeros((max_delay_steps, n_neurons), device=device)
+        
+        # Pointer to the "Current Time" inside the buffer
+        self.cursor = 0
+
+    def write(self, current_activity: torch.Tensor):
+        """
+        Records the activity happening NOW into the buffer.
+        Overwrites the oldest data (Ring structure).
+        """
+        self.buffer[self.cursor] = current_activity
+
+    def read(self, delay_indices: torch.Tensor) -> torch.Tensor:
+        """
+        Retrieves signals from the past.
+        
+        Args:
+            delay_indices: A tensor of shape (n_neurons,) where each value
+                           is how many steps back we should look for that neuron.
+                           
+        Returns:
+            The delayed signal for each neuron.
+        """
+        # Calculate the past position: (Current - Delay) % Max_Size
+        # The modulo (%) operator creates the "Ring" effect.
+        read_indices = (self.cursor - delay_indices) % self.max_delay
+        
+        # We need to gather the specific time-slices for specific neurons.
+        # This uses advanced PyTorch indexing.
+        # buffer[:, i] is the history of neuron i.
+        # We want buffer[read_indices[i], i].
+        
+        neuron_indices = torch.arange(self.n_neurons, device=self.device)
+        delayed_signal = self.buffer[read_indices, neuron_indices]
+        
+        return delayed_signal
+
+    def tick(self):
+        """Moves the clock forward by 1 step."""
+        self.cursor = (self.cursor + 1) % self.max_delay"""
+MERGEN ANATOMY MODULE
+Defines the biological components of the cognitive architecture.
+
+- CorticalLayer: A 2D sheet of neurons with local field dynamics.
+- Hippocampus: Fast episodic memory and pattern completion.
+- BasalGanglia: Action selection and reinforcement learning gating.
+- Cerebellum: Error correction and fine-motor tuning.
+"""
+
+from .cortical_sheet import CorticalLayer
+from .hippocampus import Hippocampus
+from .basal_ganglia import BasalGanglia
+from .cerebellum import Cerebellumimport torch
+import torch.nn as nn
+from engine.tensor_ops import fft_convolve2d, normalize_tensor
+from engine.delays import DelayBuffer
+
+class CorticalLayer(nn.Module):
+    """
+    A 2D Sheet of Spiking Neurons with Local Field Connectivity.
+    
+    Biophysics:
+    - Uses Leaky Integrate-and-Fire (LIF) dynamics with Adaptation.
+    - Supports 'Mexican Hat' lateral interactions via FFT Convolution.
+    - Manages its own homeostatic thresholding.
+    """
+    def __init__(self, height, width, dt, kernel_tensor, device='cpu'):
+        super().__init__()
+        self.height = height
+        self.width = width
+        self.n_neurons = height * width
+        self.dt = dt
+        self.device = device
+        
+        # --- 1. NEURAL STATE ---
+        # Voltage (Membrane Potential)
+        self.v = torch.zeros((height, width), device=device)
+        # Adaptation (Fatigue variable)
+        self.a = torch.zeros((height, width), device=device)
+        # Dynamic Threshold (Homeostasis)
+        self.theta = torch.ones((height, width), device=device) * 1.0
+        # Spikes (0 or 1)
+        self.spikes = torch.zeros((height, width), device=device)
+        
+        # --- 2. CONNECTIVITY ---
+        # The 'Mexican Hat' kernel in Frequency Domain (for fast FFT)
+        # We assume the kernel is pre-calculated and passed here.
+        self.kernel_fft = torch.fft.rfft2(kernel_tensor).to(device)
+        
+        # --- 3. PARAMETERS ---
+        self.tau_mem = 20.0   # Membrane time constant (ms)
+        self.tau_adapt = 200.0 # Adaptation time constant (ms)
+        self.v_reset = 0.0
+        self.refractory_period = 2.0 # ms
+        self.refractory_count = torch.zeros_like(self.v)
+
+    def forward(self, external_input):
+        """
+        Runs one time-step (dt) of the cortical dynamics.
+        
+        Args:
+            external_input: Input tensor from Thalamus or other Cortical areas.
+        
+        Returns:
+            spikes: The output firing pattern of this layer.
+        """
+        # A. CALCULATE LOCAL FIELD INPUT (Lateral Interaction)
+        # Neurons excite neighbors and inhibit distant ones.
+        # This creates "Bubbles of Attention" and "Traveling Waves".
+        i_local = fft_convolve2d(self.spikes, self.kernel_fft)
+        
+        # B. TOTAL INPUT CURRENT
+        # Input = External + Local - Self_Adaptation
+        total_input = external_input + i_local - (self.a * 1.5)
+        
+        # C. INTEGRATE VOLTAGE (Euler Method for speed)
+        # dV/dt = (-V + Input) / Tau
+        dv = (-self.v + total_input) / self.tau_mem
+        
+        # Only update neurons not in refractory period
+        active_mask = (self.refractory_count <= 0).float()
+        self.v = self.v + (dv * self.dt * active_mask)
+        
+        # D. GENERATE SPIKES
+        # Fire if Voltage > Threshold
+        new_spikes = (self.v > self.theta).float()
+        
+        # E. RESET & HOMEOSTASIS
+        # Reset voltage of firing neurons
+        self.v = self.v * (1 - new_spikes) + (self.v_reset * new_spikes)
+        
+        # Set refractory timer
+        self.refractory_count = torch.where(new_spikes > 0, 
+                                            torch.tensor(self.refractory_period, device=self.device), 
+                                            self.refractory_count - self.dt)
+        
+        # Update Adaptation (Fatigue)
+        # dA/dt = -A/Tau + Spike
+        da = (-self.a / self.tau_adapt) + new_spikes
+        self.a = self.a + (da * self.dt)
+        
+        # Update Dynamic Threshold (Homeostasis)
+        # Threshold decays to baseline, but jumps up when neuron fires
+        # This prevents epilepsy (Runaway excitation).
+        self.theta = 1.0 + (self.theta - 1.0) * 0.99
+        self.theta = self.theta + (new_spikes * 2.0)
+        
+        self.spikes = new_spikes
+        return self.spikesimport torch
+import torch.nn as nn
+
+class Hippocampus(nn.Module):
+    """
+    Fast Episodic Memory Module.
+    
+    Function:
+    Stores 'Snapshots' of cortical activity.
+    When a similar pattern appears, it completes the pattern (Recall).
+    
+    Mechanism:
+    - Key Memory: Stores the context (Question).
+    - Value Memory: Stores the result (Answer).
+    - Retrieval: Uses Cosine Similarity on GPU.
+    """
+    def __init__(self, input_dim, value_dim, memory_capacity, threshold=0.9, device='cpu'):
+        super().__init__()
+        self.capacity = memory_capacity
+        self.input_dim = input_dim
+        self.value_dim = value_dim
+        self.threshold = threshold
+        self.device = device
+        
+        self.keys = torch.zeros((memory_capacity, input_dim), device=device)
+        
+        self.values = torch.zeros((memory_capacity, value_dim), device=device)
+        
+        self.usage = torch.zeros(memory_capacity, device=device)
+        self.ptr = 0
+        self.size = 0
+
+    def store(self, key_pattern, value_pattern):
+        """
+        One-Shot Learning: Instantly writes to tensor memory.
+        """
+        # Normalize patterns for better cosine similarity later
+        key_norm = torch.nn.functional.normalize(key_pattern.flatten(), dim=0)
+        val_norm = torch.nn.functional.normalize(value_pattern.flatten(), dim=0)
+        
+        self.keys[self.ptr] = key_norm
+        self.values[self.ptr] = val_norm
+        
+        # Move pointer (Ring Buffer)
+        self.ptr = (self.ptr + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
+
+    def retrieve(self, query_pattern):
+        """
+        Associative Recall.
+        
+        Args:
+            query_pattern: The current state of the cortex.
+            
+        Returns:
+            recalled_pattern: The associated memory (if found), else None.
+            confidence: How similar the match is (0.0 to 1.0).
+        """
+        if self.size == 0:
+            return None, 0.0
+            
+        query_norm = torch.nn.functional.normalize(query_pattern.flatten(), dim=0)
+        
+        # Vectorized Cosine Similarity against ALL memories at once
+        # (1, Dim) @ (Capacity, Dim).T = (1, Capacity)
+        # This is extremely fast on GPU.
+        similarities = torch.matmul(self.keys[:self.size], query_norm)
+        
+        best_sim, best_idx = torch.max(similarities, dim=0)
+        
+        if best_sim > self.threshold:
+            # Memory Found! Return the associated Value.
+            return self.values[best_idx], best_sim.item()
+        
+        return None, best_sim.item()import torch
+import torch.nn as nn
+
+class BasalGanglia(nn.Module):
+    """
+    Action Selection & Gating Mechanism.
+    
+    Biophysics:
+    - Receives inputs from Cortex.
+    - Calculates 'Value' (Expected Reward).
+    - Performs 'Winner-Take-All' to select one action.
+    - Modulated by Dopamine (Reward Prediction Error).
+    """
+    def __init__(self, n_inputs, n_actions, device='cpu'):
+        super().__init__()
+        self.device = device
+        
+        # Weights determining value of actions
+        # Plasticity here is driven by Dopamine (RL)
+        self.weights = torch.randn((n_inputs, n_actions), device=device) * 0.01
+        
+        # Gating Threshold
+        self.threshold = 0.5
+
+    def forward(self, cortical_input):
+        """
+        Decide which action to take.
+        """
+        # Calculate Action Values (Q-values)
+        action_values = torch.matmul(cortical_input.flatten(), self.weights)
+        
+        # Softmax selection (Exploration vs Exploitation)
+        action_probs = torch.softmax(action_values, dim=0)
+        
+        # Select the winner
+        winner_idx = torch.argmax(action_probs)
+        winner_val = action_values[winner_idx]
+        
+        # Gating: Only act if confidence is high enough
+        gating_signal = 1.0 if winner_val > self.threshold else 0.0
+        
+        return winner_idx, gating_signal, action_values
+
+    def learn(self, input_trace, action_idx, reward, prediction_error):
+        """
+        Dopaminergic Learning (Reinforcement Learning).
+        
+        If Reward > Expected: Strengthen connection (LTP).
+        If Reward < Expected: Weaken connection (LTD).
+        """
+        learning_rate = 0.1
+        
+        # Create a mask for the chosen action
+        # We only update the weights responsible for the chosen action
+        d_weights = input_trace.unsqueeze(1) * prediction_error
+        
+        # Update only the column of the selected action
+        self.weights[:, action_idx] += learning_rate * d_weights.squeeze()import torch
+import torch.nn as nn
+
+class Cerebellum(nn.Module):
+    """
+    Supervised Error Correction Module.
+    
+    Function:
+    - Predicts the sensory consequence of a motor command.
+    - If there is a mismatch (Error), it learns instantly to correct it.
+    - Crucial for smooth motor control and cognitive precision.
+    """
+    def __init__(self, input_dim, output_dim, device='cpu'):
+        super().__init__()
+        self.device = device
+        
+        # The Cerebellum is essentially a massive perceptron 
+        # that learns from error signals.
+        self.weights = torch.zeros((input_dim, output_dim), device=device)
+        self.learning_rate = 0.5 # Cerebellum learns FAST
+
+    def forward(self, context_input):
+        """
+        Predict the outcome/correction based on context.
+        """
+        prediction = torch.matmul(context_input.flatten(), self.weights)
+        return prediction
+
+    def learn(self, context_input, error_signal):
+        """
+        LMS (Least Mean Squares) Learning.
+        Also known as the Delta Rule.
+        
+        w += rate * error * input
+        """
+        # Outer product to update the weight matrix
+        delta = self.learning_rate * torch.outer(context_input.flatten(), error_signal.flatten())
+        self.weights += delta"""
+MERGEN CONNECTIVITY MODULE
+The wiring of the brain.
+
+- Kernels: Define local interactions (Short-range).
+- Projections: Define point-to-point wirings (Mid-range).
+- GlobalWorkspace: Defines the attention-based router (Long-range).
+"""
+
+from .kernels import MexicanHatKernel, GaborKernel
+from .projections import create_sparse_projection, create_topological_projection
+from .global_workspace import GlobalWorkspaceimport torch
+import math
+
+class MexicanHatKernel:
+    """
+    Generates a 2D Difference-of-Gaussians (DoG) kernel.
+    Essential for creating 'Bubbles of Activity' in the cortex.
+    """
+    @staticmethod
+    def create(size_h, size_w, exc_sigma=2.0, inh_sigma=6.0, exc_gain=1.5, inh_gain=1.2, device='cpu'):
+        """
+        Creates a normalized Mexican Hat Kernel tensor.
+        """
+        # Create coordinate grid
+        y = torch.arange(size_h, device=device) - size_h // 2
+        x = torch.arange(size_w, device=device) - size_w // 2
+        Y, X = torch.meshgrid(y, x, indexing='ij')
+        
+        # Calculate radius squared
+        R2 = X**2 + Y**2
+        
+        # Excitation Gaussian
+        exc = exc_gain * torch.exp(-R2 / (2 * exc_sigma**2))
+        
+        # Inhibition Gaussian
+        inh = inh_gain * torch.exp(-R2 / (2 * inh_sigma**2))
+        
+        # Combine
+        kernel = exc - inh
+        
+        # Zero-Sum Balancing (CRITICAL for stability)
+        # We ensure the total energy of the kernel is 0.
+        # This prevents the brain from exploding with energy over time.
+        kernel -= kernel.mean()
+        
+        return kernel
+
+class GaborKernel:
+    """
+    Generates oriented filters (like in Visual Cortex V1).
+    Used for detecting edges/lines in sensory input.
+    """
+    @staticmethod
+    def create(size, sigma, theta, lambda_, gamma, psi, device='cpu'):
+        # Implementation of 2D Gabor formula
+        sigma_x = sigma
+        sigma_y = sigma / gamma
+        
+        y, x = torch.meshgrid(
+            torch.linspace(-size//2, size//2, size, device=device),
+            torch.linspace(-size//2, size//2, size, device=device),
+            indexing='ij'
+        )
+        
+        # Rotation
+        x_theta = x * math.cos(theta) + y * math.sin(theta)
+        y_theta = -x * math.sin(theta) + y * math.cos(theta)
+        
+        gb = torch.exp(-0.5 * (x_theta**2 / sigma_x**2 + y_theta**2 / sigma_y**2)) * \
+             torch.cos(2 * math.pi * x_theta / lambda_ + psi)
+             
+        return gbimport torch
+import torch.nn as nn
+
+class GlobalWorkspace(nn.Module):
+    """
+    The 'Router' of the brain. Implements the Global Neuronal Workspace Theory.
+    
+    Mechanism:
+    Instead of Dense N-to-N connections, we use a bottleneck:
+    Cortex (N) -> Workspace (K) -> Cortex (N)
+    
+    This is computationally O(N*K) which is linear-ish, allowing massive scaling.
+    """
+    def __init__(self, input_dim, workspace_dim, output_dim, device='cpu'):
+        super().__init__()
+        self.device = device
+        
+        # 1. UPLINK (Compression): Cortex -> Workspace
+        # Compresses massive cortical activity into 'Latent Tokens'
+        self.W_up = nn.Linear(input_dim, workspace_dim, bias=False).to(device)
+        
+        # 2. LATERAL (Reasoning): Workspace -> Workspace
+        # The workspace neurons talk to each other (Recurrent / Attention)
+        # We use a simple recurrent matrix here to sustain thought.
+        self.W_lat = nn.Linear(workspace_dim, workspace_dim, bias=False).to(device)
+        
+        # 3. DOWNLINK (Broadcast): Workspace -> Cortex
+        # Spreads the selected information back to the brain
+        self.W_down = nn.Linear(workspace_dim, output_dim, bias=False).to(device)
+        
+        # State
+        self.state = torch.zeros(workspace_dim, device=device)
+        
+        # Initialization
+        nn.init.orthogonal_(self.W_up.weight, gain=0.5)
+        nn.init.orthogonal_(self.W_lat.weight, gain=0.9) # High gain to sustain memory
+        nn.init.orthogonal_(self.W_down.weight, gain=0.5)
+
+    def forward(self, cortical_input):
+        """
+        Args:
+            cortical_input: Activity from sensory/motor areas (Batch, N)
+            
+        Returns:
+            broadcast_signal: Feedback to the cortex (Batch, N)
+        """
+        # A. Compression (Bottom-Up)
+        # Info enters the workspace
+        incoming = self.W_up(cortical_input)
+        
+        # B. Ignition & Competition (Internal)
+        # Combine new input with old state (Recurring thought)
+        # Activation function is ReLU to ensure sparsity (Only strong ideas survive)
+        internal_drive = incoming + self.W_lat(self.state)
+        self.state = torch.relu(internal_drive)
+        
+        # Gating / Thresholding (Attention)
+        # If activity is too low, kill it (Silence noise).
+        # This creates the "Ignition" effect where only strong stimuli enter consciousness.
+        mask = self.state.float()
+        self.state = self.state * mask
+        
+        # C. Broadcast (Top-Down)
+        # Send the processed thought back to the cortex
+        broadcast = self.W_down(self.state)
+        
+        return broadcastimport torch
+
+def create_sparse_projection(n_src, n_dst, density=0.1, device='cpu'):
+    """
+    Creates a sparse weight matrix. 
+    Most biological connections are sparse (density < 10%).
+    """
+    # Create random mask
+    mask = torch.rand((n_src, n_dst), device=device) < density
+    
+    # Initialize weights (Xavier-like)
+    weights = torch.randn((n_src, n_dst), device=device) * 0.05
+    
+    # Apply mask
+    weights = weights * mask.float()
+    
+    return weights
+
+def create_topological_projection(size, radius=2, device='cpu'):
+    """
+    Creates a 1-to-1 mapping with slight spread.
+    Useful for connecting Layer 4 to Layer 2/3 directly above it.
+    
+    (Simplified Identity matrix with noise for now)
+    """
+    # For now, a simple Identity matrix is the best topological map
+    # In V3.1 we can add Gaussian spread.
+    return torch.eye(size, device=device)"""
+MERGEN LEARNING MODULE
+The Hybrid Learning Engine.
+
+Combines three distinct learning paradigms:
+1. Surrogate Gradients: Enables PyTorch to optimize Spiking Networks (Supervised).
+2. STDP (Spike-Timing-Dependent Plasticity): Biological, unsupervised association.
+3. RL (Reinforcement Learning): Dopamine-based reward modulation.
+"""
+
+from .gradients import SurrogateSpike
+from .stdp import STDPMechanism
+from .rl_agent import DopamineModulatorimport torch
+import torch.nn as nn
+
+class SurrogateSpike(torch.autograd.Function):
+    """
+    The Bridge between Digital Optimization and Biological Spiking.
+    
+    Problem: Spikes are discrete (0 or 1). Gradients cannot flow through them.
+    Solution: We use a 'Surrogate Gradient' during backpropagation.
+    
+    Forward pass:  Heaviside step function (Hard spike).
+    Backward pass: Fast Sigmoid derivative (Soft curve).
+    """
+    
+    @staticmethod
+    def forward(ctx, input_voltage, threshold=1.0):
+        # Save input for backward pass
+        ctx.save_for_backward(input_voltage)
+        ctx.threshold = threshold
+        
+        # Hard Spike: 1 if V > Threshold, else 0
+        return (input_voltage > threshold).float()
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Retrieve saved input
+        input_voltage, = ctx.saved_tensors
+        threshold = ctx.threshold
+        
+        # --- THE TRICK ---
+        # Instead of the true derivative of a step function (which is 0 or infinity),
+        # we calculate the derivative of a Sigmoid function centered at the threshold.
+        # This allows the "Error Signal" to flow back through time.
+        
+        # Fast Sigmoid Derivative approximation
+        # steepness (beta) controls how picky the gradient is.
+        beta = 10.0 
+        grad_input = grad_output / (1 + beta * torch.abs(input_voltage - threshold)).pow(2)
+        
+        return grad_input, None
+
+class SpikingActivation(nn.Module):
+    """
+    Layer wrapper to easily use Surrogate Spikes in the model.
+    """
+    def __init__(self, threshold=1.0):
+        super().__init__()
+        self.threshold = threshold
+    
+    def forward(self, x):
+        return SurrogateSpike.apply(x, self.threshold)import torch
+
+class STDPMechanism:
+    """
+    Spike-Timing-Dependent Plasticity (Hebbian Learning).
+    
+    Function:
+    Unsupervised learning based on causal relationships between neurons.
+    If Input causes Output -> Strengthen weight.
+    If Output happens before Input -> Weaken weight.
+    """
+    def __init__(self, learning_rate=0.001, tau_trace=20.0, dt=1.0):
+        self.lr = learning_rate
+        self.tau_trace = tau_trace
+        self.dt = dt
+    
+    def update_weights(self, weights, pre_spikes, post_spikes, pre_trace, post_trace):
+        """
+        Adjusts synaptic weights based on spike timing.
+        
+        Args:
+            weights: The weight matrix (Pre x Post).
+            pre_spikes: Activity of input neurons (Batch x Pre).
+            post_spikes: Activity of output neurons (Batch x Post).
+            pre_trace: Filtered history of input activity.
+            post_trace: Filtered history of output activity.
+        """
+        # 1. Long-Term Potentiation (LTP)
+        # Event: Post-synaptic neuron fires.
+        # Logic: Check if Pre-synaptic neuron fired recently (pre_trace).
+        # Formula: dW += lr * (pre_trace * post_spike)
+        
+        # We use batch matrix multiplication for efficiency
+        # (Pre_Trace.T @ Post_Spike)
+        delta_w_ltp = torch.matmul(pre_trace.t(), post_spikes)
+        
+        # 2. Long-Term Depression (LTD)
+        # Event: Pre-synaptic neuron fires.
+        # Logic: Check if Post-synaptic neuron fired recently (post_trace) 
+        # (meaning Pre was too late to cause it).
+        # Formula: dW -= lr * (pre_spike * post_trace)
+        
+        delta_w_ltd = torch.matmul(pre_spikes.t(), post_trace)
+        
+        # 3. Combine and Update
+        # Soft-bound normalization (prevent weights from exploding)
+        # If weight is high, LTP is weaker. If low, LTD is weaker.
+        w_max = 1.0
+        delta_w = (self.lr * delta_w_ltp * (w_max - weights)) - (self.lr * delta_w_ltd * weights)
+        
+        return delta_w
+
+    def update_trace(self, trace, spikes):
+        """
+        Updates the memory trace of spiking activity.
+        dx/dt = -x/tau + spike
+        """
+        decay = 1.0 - (self.dt / self.tau_trace)
+        return (trace * decay) + spikesimport torch
+
+class DopamineModulator:
+    """
+    Reinforcement Learning Adapter (Actor-Critic style logic).
+    
+    Function:
+    Calculates the Reward Prediction Error (RPE).
+    This signal modulates ALL plasticity in the brain.
+    
+    "Dopamine is the teacher of the brain."
+    """
+    def __init__(self, gamma=0.99, lr_critic=0.1):
+        self.gamma = gamma # Discount factor for future rewards
+        self.value_estimate = 0.0 # Expected reward
+        self.lr_critic = lr_critic # How fast we update expectation
+
+    def compute_rpe(self, reward, new_value_estimate=None):
+        """
+        Calculates: Surprise = Actual - Expected
+        """
+        # If we have a new state value estimate (Critic), use Temporal Difference
+        if new_value_estimate is not None:
+            target = reward + self.gamma * new_value_estimate
+        else:
+            target = reward
+            
+        # RPE (Dopamine Signal)
+        rpe = target - self.value_estimate
+        
+        # Update internal expectation (The Critic learns)
+        self.value_estimate += self.lr_critic * rpe
+        
+        return rpe
+
+    def modulate_gradients(self, gradients, rpe):
+        """
+        Neuromodulation:
+        Scales the gradients based on the Dopamine signal.
+        
+        If RPE > 0 (Good surprise): Amplify learning (LTP).
+        If RPE < 0 (Bad surprise): Reverse/Suppress learning (LTD).
+        """
+        return gradients * rpe"""
+MERGEN UTILS MODULE
+Safety mechanisms and Data translation tools.
+
+- Stability: Prevents runaway excitation (Epilepsy control).
+- Encoder: Converts real-world data (Text/Numbers) into neural spikes.
+"""
+
+from .stability import HomeostaticRegulator
+from .encoder import SpikeEncoderimport torch
+
+class HomeostaticRegulator:
+    """
+    Maintains the stability of neural activity.
+    
+    Mechanism:
+    Tracks the 'Running Average' of firing rates.
+    If a neuron fires too much -> Raise Threshold (Make it harder to fire).
+    If a neuron is too silent -> Lower Threshold (Make it easier to fire).
+    
+    Goal:
+    Keep the network in a 'Critical State' (Edge of Chaos), where information processing is optimal.
+    """
+    def __init__(self, n_neurons, target_rate=0.02, adjustment_speed=0.01, device='cpu'):
+        """
+        Args:
+            target_rate: Desired firing probability (e.g., 2% of neurons active per step).
+            adjustment_speed: How fast the threshold changes (Learning Rate for Homeostasis).
+        """
+        self.target_rate = target_rate
+        self.alpha = adjustment_speed
+        self.device = device
+        
+        # Moving average of activity
+        self.activity_trace = torch.zeros(n_neurons, device=device)
+
+    def update(self, current_spikes, current_thresholds):
+        """
+        Adjusts thresholds based on recent activity.
+        
+        Formula:
+        d_Threshold = alpha * (Current_Activity - Target_Activity)
+        """
+        # Update trace (Low-pass filter of spikes)
+        # trace = 0.95 * trace + 0.05 * spikes
+        self.activity_trace = 0.95 * self.activity_trace + 0.05 * current_spikes
+        
+        # Calculate error (Too hot or Too cold?)
+        rate_error = self.activity_trace - self.target_rate
+        
+        # Adjust threshold
+        # If Error > 0 (Too active) -> Increase Threshold
+        # If Error < 0 (Too silent) -> Decrease Threshold
+        new_thresholds = current_thresholds + (self.alpha * rate_error)
+        
+        # Safety clamp to prevent negative or infinite thresholds
+        return torch.clamp(new_thresholds, min=0.1, max=5.0)import torch
+import numpy as np
+
+class SpikeEncoder:
+    """
+    Converts data into spatiotemporal spike patterns.
+    Currently optimized for Text and Simple Math.
+    """
+    def __init__(self, n_neurons, device='cpu'):
+        self.n_neurons = n_neurons
+        self.device = device
+        self.char_map = {}
+        self.embeddings = None # Will be initialized lazily
+        
+        # Fixed random generator for consistency
+        self.rng = np.random.default_rng(42)
+
+    def _init_embeddings(self, text_corpus):
+        """
+        Creates a random unique neural pattern for each character found in the text.
+        Orthogonal high-dimensional vectors ensure patterns don't overlap easily.
+        """
+        unique_chars = sorted(list(set(text_corpus)))
+        for i, char in enumerate(unique_chars):
+            if char not in self.char_map:
+                self.char_map[char] = len(self.char_map)
+        
+        vocab_size = len(self.char_map) + 10 # Buffer space
+        
+        # Initialize random dense vectors (N_Neurons x Vocab)
+        # These are "Static Inputs" that will drive the cortex.
+        emb_matrix = self.rng.normal(0, 1.0, (vocab_size, self.n_neurons))
+        self.embeddings = torch.tensor(emb_matrix, dtype=torch.float32, device=self.device)
+
+    def encode_text(self, text, duration_steps):
+        """
+        Converts a string like "2 + 2" into a tensor of input currents.
+        
+        Args:
+            text: String to encode.
+            duration_steps: How long the signal should last (e.g., 1000ms).
+            
+        Returns:
+            input_current: Tensor (Time, Neurons)
+        """
+        # Ensure embeddings exist for these characters
+        self._init_embeddings(text)
+        
+        signal = torch.zeros((duration_steps, self.n_neurons), device=self.device)
+        step_per_char = duration_steps // len(text)
+        
+        for i, char in enumerate(text):
+            char_idx = self.char_map[char]
+            
+            # Time window for this character
+            start = i * step_per_char
+            end = start + step_per_char
+            
+            # Inject the character's neural pattern
+            # We add it to the signal tensor
+            vector = self.embeddings[char_idx]
+            
+            # Temporal jitter or Rate coding could be added here
+            # For now, we use Direct Current injection (simplest and most robust)
+            signal[start:end, :] += vector * 1.5 # 1.5 is the input gain
+            
+        return signal# utils/telemetry.py
+import torch
+import numpy as np
+import time
+import os
+
+class TelemetryBox:
+    def __init__(self, run_name="test_run"):
+        self.history = {
+            'step': [],
+            'sensory_activity': [], # Ortalama ateşleme hızı
+            'motor_activity': [],
+            'workspace_activity': [],
+            'accuracy': [],
+            'memory_hits': [], # Hafıza kullanıldı mı?
+            'computation_time': []
+        }
+        self.snapshots = {} # Detaylı ısı haritaları için
+        self.run_name = run_name
+        self.start_time = time.time()
+
+    def log_step(self, step, sensory, motor, workspace, acc, mem_hit, duration):
+        # GPU'dan CPU'ya sadece "Scalar" (tek sayı) çekiyoruz, bu hızlıdır.
+        self.history['step'].append(step)
+        self.history['sensory_activity'].append(sensory.float().mean().item())
+        self.history['motor_activity'].append(motor.float().mean().item())
+        self.history['workspace_activity'].append(workspace.float().mean().item())
+        self.history['accuracy'].append(acc)
+        self.history['memory_hits'].append(1 if mem_hit else 0)
+        self.history['computation_time'].append(duration)
+
+    def take_snapshot(self, step, sensory_spikes, motor_spikes):
+        # Her adımda değil, sadece belirli aralıklarda tam resim alıyoruz
+        # Veriyi sıkıştırıp (Downsample) saklayalım yoksa disk dolar.
+        # 100x100 -> 50x50 gibi
+        s_img = torch.nn.functional.interpolate(sensory_spikes.unsqueeze(0).unsqueeze(0), scale_factor=0.5).squeeze().cpu().numpy()
+        m_img = torch.nn.functional.interpolate(motor_spikes.unsqueeze(0).unsqueeze(0), scale_factor=0.5).squeeze().cpu().numpy()
+        
+        self.snapshots[step] = {'sensory': s_img, 'motor': m_img}
+
+    def save_report(self, output_dir="logs"):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        filename = f"{output_dir}/{self.run_name}_data.npz"
+        np.savez(filename, history=self.history, snapshots=self.snapshots)
+        print(f"📊 Telemetry saved to {filename}")# visualization/analyze_logs.py
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import sys
+
+def analyze(run_name="diagnostic_run_01"):
+    path = f"logs/{run_name}_data.npz"
+    if not os.path.exists(path):
+        print(f"❌ Log file not found: {path}")
+        return
+
+    print(f"📂 Loading telemetry: {path}")
+    data = np.load(path, allow_pickle=True)
+    history = data['history'].item()
+    snapshots = data['snapshots'].item()
+    
+    # --- PLOT 1: ACTIVITY RATES ---
+    fig, axs = plt.subplots(3, 1, figsize=(12, 12))
+    
+    # Panel 1: Firing Rates (Epilepsy Check)
+    axs[0].plot(history['sensory_activity'], label='Sensory', color='orange', alpha=0.7)
+    axs[0].plot(history['motor_activity'], label='Motor', color='cyan', alpha=0.7)
+    axs[0].set_title("Nöron Ateşleme Oranları (Firing Rates)")
+    axs[0].set_ylabel("Aktif Nöron Oranı (0.0 - 1.0)")
+    axs[0].axhline(y=0.05, color='r', linestyle='--', label='Hedef (Homeostasis)')
+    axs[0].legend()
+    axs[0].grid(True, alpha=0.2)
+    
+    # Panel 2: Global Workspace Activation
+    axs[1].plot(history['workspace_activity'], color='magenta')
+    axs[1].set_title("Global Workspace Aktivasyonu (Bilinç Akışı)")
+    axs[1].set_ylabel("Aktivite")
+    axs[1].grid(True, alpha=0.2)
+    
+    # Panel 3: Performance Latency
+    axs[2].plot(history['computation_time'], color='lime')
+    axs[2].set_title("Hesaplama Süresi (ms)")
+    axs[2].set_ylabel("Saniye")
+    axs[2].set_xlabel("Adım (Step)")
+    axs[2].grid(True, alpha=0.2)
+    
+    plt.tight_layout()
+    plt.savefig(f"logs/{run_name}_report.png")
+    print(f"🖼️  Report saved to logs/{run_name}_report.png")
+    plt.show()
+
+    # --- PLOT 2: SNAPSHOTS (HEATMAPS) ---
+    # İlk ve Son anın görüntülerini çizelim
+    if len(snapshots) > 0:
+        steps = sorted(snapshots.keys())
+        first_step = steps[0]
+        last_step = steps[-1]
+        
+        fig2, axes = plt.subplots(2, 2, figsize=(10, 10))
+        
+        axes[0,0].imshow(snapshots[first_step]['sensory'], cmap='inferno', vmin=0, vmax=1)
+        axes[0,0].set_title(f"Sensory (Step {first_step})")
+        
+        axes[0,1].imshow(snapshots[first_step]['motor'], cmap='viridis', vmin=0, vmax=1)
+        axes[0,1].set_title(f"Motor (Step {first_step})")
+        
+        axes[1,0].imshow(snapshots[last_step]['sensory'], cmap='inferno', vmin=0, vmax=1)
+        axes[1,0].set_title(f"Sensory (Step {last_step})")
+        
+        axes[1,1].imshow(snapshots[last_step]['motor'], cmap='viridis', vmin=0, vmax=1)
+        axes[1,1].set_title(f"Motor (Step {last_step})")
+        
+        plt.tight_layout()
+        plt.show()
+
+if __name__ == "__main__":
+    analyze()# tests/system_health_check.py
+import sys
+import os
+import torch
+import time
+import numpy as np
+
+# Proje kök dizinini ekle
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import config as cfg
+from anatomy.cortical_sheet import CorticalLayer
+from anatomy.hippocampus import Hippocampus
+from connectivity.global_workspace import GlobalWorkspace
+from connectivity.kernels import MexicanHatKernel
+from utils.telemetry import TelemetryBox
+
+def run_diagnostics(steps=500):
+    print("🩺 STARTING SYSTEM DIAGNOSTICS (MERGEN V3)...")
+    
+    # 1. INIT
+    device = cfg.DEVICE
+    print(f"⚙️  Hardware: {device}")
+    
+    try:
+        kernel = MexicanHatKernel.create(cfg.H_CORTEX, cfg.W_CORTEX, device=device)
+        sensory = CorticalLayer(cfg.H_CORTEX, cfg.W_CORTEX, cfg.DT, kernel, device=device)
+        motor = CorticalLayer(cfg.H_CORTEX, cfg.W_CORTEX, cfg.DT, kernel, device=device)
+        workspace = GlobalWorkspace(cfg.N_NEURONS, cfg.N_BUNDLES, cfg.N_NEURONS, device=device)
+        
+        print("✅ Anatomy Init Success")
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR during Init: {e}")
+        return
+
+    # 2. TELEMETRY INIT
+    telemetry = TelemetryBox(run_name="diagnostic_run_01")
+    
+    # 3. STRESS TEST LOOP
+    print(f"🚀 Running {steps} simulation steps...")
+    
+    input_noise = torch.randn((steps, cfg.H_CORTEX, cfg.W_CORTEX), device=device) * 10.0
+    
+    start_global = time.time()
+    
+    for t in range(steps):
+        step_start = time.time()
+        
+        # A. Sensory Dynamics
+        spikes_s = sensory(input_noise[t])
+        
+        # B. Global Workspace
+        gw_out = workspace(spikes_s.flatten().unsqueeze(0)).view(cfg.H_CORTEX, cfg.W_CORTEX)
+        
+        # C. Motor Dynamics
+        spikes_m = motor(gw_out * cfg.BUNDLE_GAIN) 
+        
+        step_end = time.time()
+        duration = step_end - step_start
+        
+        # D. Log Data
+        telemetry.log_step(
+            step=t, 
+            sensory=spikes_s, 
+            motor=spikes_m, 
+            workspace=workspace.state, # State activation
+            acc=0.0, # Dummy acc
+            mem_hit=False, 
+            duration=duration
+        )
+        
+        # E. Take Snapshot every 50 steps
+        if t % 50 == 0:
+            telemetry.take_snapshot(t, spikes_s, spikes_m)
+            # Canlılık belirtisi
+            print(f"   Step {t}/{steps} | Sensory Rate: {spikes_s.mean():.4f} | Motor Rate: {spikes_m.mean():.4f} | Time: {duration*1000:.2f}ms")
+
+    total_time = time.time() - start_global
+    print(f"✅ Diagnostics Complete in {total_time:.2f}s")
+    print(f"⚡ Average FPS: {steps/total_time:.1f}")
+    
+    # Save Data
+    telemetry.save_report()
+
+if __name__ == "__main__":
+    run_diagnostics()"""
+MERGEN V3 - TRAINING LOOP
+The "School" where the Cognitive Engine learns.
+"""
+
+import torch
+import numpy as np
+import time
+from engine.integrators import EulerSolver
+from anatomy.cortical_sheet import CorticalLayer
+from anatomy.hippocampus import Hippocampus
+from connectivity.kernels import MexicanHatKernel
+from connectivity.global_workspace import GlobalWorkspace
+from utils.encoder import SpikeEncoder
+from datasets.generators.math_teacher import MathTeacher
+import config as cfg
+
+def main():
+    print(f"🚀 Initializing MERGEN V3 (PyTorch + GPU: {cfg.DEVICE})...")
+    print(f"🧠 Cortex Size: {cfg.N_NEURONS} Neurons x 2 Layers")
+    
+    # --- 1. BUILD THE BRAIN (ANATOMY) ---
+    # A. Sensory Cortex (L4)
+    kernel_tensor = MexicanHatKernel.create(cfg.H_CORTEX, cfg.W_CORTEX, device=cfg.DEVICE)
+    sensory_cortex = CorticalLayer(cfg.H_CORTEX, cfg.W_CORTEX, cfg.DT, kernel_tensor, device=cfg.DEVICE)
+    
+    # B. Motor Cortex (L5/6)
+    motor_cortex = CorticalLayer(cfg.H_CORTEX, cfg.W_CORTEX, cfg.DT, kernel_tensor, device=cfg.DEVICE)
+    
+    # C. Global Workspace (The Router)
+    workspace = GlobalWorkspace(cfg.N_NEURONS, cfg.N_BUNDLES, cfg.N_NEURONS, device=cfg.DEVICE)
+    
+    # D. Hippocampus (Fast Memory)
+    hippocampus = Hippocampus(cfg.N_NEURONS, cfg.MEMORY_CAPACITY, cfg.SIMILARITY_THRESHOLD, device=cfg.DEVICE)
+    
+    # E. Tools
+    encoder = SpikeEncoder(cfg.N_NEURONS, device=cfg.DEVICE)
+    teacher = MathTeacher(cfg.N_NEURONS, duration_ms=1000) # Re-use your generator
+    
+    # Readout Weights (Motor -> Output Class)
+    # Simple linear readout for now
+    W_readout = torch.zeros((cfg.N_NEURONS, 20), device=cfg.DEVICE, requires_grad=False)
+    
+    print("✅ Brain Assembly Complete.")
+    print("\n⚡ Starting Training Loop...")
+    print("-----------------------------------")
+    
+    episode = 0
+    recent_acc = []
+    
+    try:
+        while True:
+            episode += 1
+            
+            # --- EPISODE START: RESET ---
+            # Clear voltages (Sleep)
+            sensory_cortex.v.fill_(cfg.V_RESET)
+            motor_cortex.v.fill_(cfg.V_RESET)
+            # Clear traces is CRITICAL to prevent ghosting
+            sensory_trace = torch.zeros(cfg.N_NEURONS, device=cfg.DEVICE)
+            motor_trace = torch.zeros(cfg.N_NEURONS, device=cfg.DEVICE)
+            
+            # --- GET TASK ---
+            # Teacher gives: "3 + 5", Answer: 8
+            # Note: MathTeacher currently returns numpy, we might need to adapt it slightly
+            # for now let's assume it gives text and int target.
+            _, target_class, problem_text = teacher.generate_sample()
+            
+            # Convert text to PyTorch input signal
+            input_signal = encoder.encode_text(problem_text, duration_steps=1000)
+            
+            # --- SIMULATION LOOP ---
+            used_memory = False
+            final_probs = None
+            
+            # Learn at the end (Consolidation phase)
+            learn_start = int(len(input_signal) * 0.9)
+            
+            for t in range(len(input_signal)):
+                # 1. Input (Sensory L4)
+                inp_t = input_signal[t].view(cfg.H_CORTEX, cfg.W_CORTEX)
+                spikes_s = sensory_cortex(inp_t)
+                
+                # Update Sensory Trace
+                sensory_trace = (1 - 0.05) * sensory_trace + 0.05 * spikes_s.flatten()
+                
+                # 2. Hippocampal Query
+                # "Have I seen this sensory pattern before?"
+                mem_val, mem_sim = hippocampus.retrieve(sensory_trace)
+                
+                # 3. Global Workspace (Broadcast)
+                # Compresses Sensory info and broadcasts to Motor
+                gw_feedback = workspace(spikes_s.flatten().unsqueeze(0)).view(cfg.H_CORTEX, cfg.W_CORTEX)
+                
+                # 4. Motor Output (L5/6)
+                # Input = GW_Feedback + Memory_Injection
+                motor_drive = gw_feedback * cfg.BUNDLE_GAIN
+                spikes_m = motor_cortex(motor_drive)
+                
+                # Update Motor Trace
+                motor_trace = (1 - 0.05) * motor_trace + 0.05 * spikes_m.flatten()
+                
+                # 5. Decision & Learning (At end of episode)
+                if t == learn_start:
+                    # Prediction: Readout from Motor Trace
+                    logits = torch.matmul(motor_trace, W_readout)
+                    cortical_probs = torch.softmax(logits, dim=0)
+                    
+                    # Integration: If memory is strong, trust it
+                    if mem_val is not None:
+                        # Memory returns a 'value pattern' (target class vector)
+                        # We simulate this as a confidence boost
+                        used_memory = True
+                        final_probs = mem_val # Trust memory 100%
+                    else:
+                        final_probs = cortical_probs
+                    
+                    # --- LEARNING (PLASTICITY) ---
+                    # 1. Update Readout (Slow Cortex)
+                    target_vec = torch.zeros(20, device=cfg.DEVICE)
+                    target_vec[target_class] = 1.0
+                    error = target_vec - final_probs
+                    
+                    # dW = lr * input * error
+                    delta = cfg.LEARNING_RATE_CORTEX * torch.outer(motor_trace, error)
+                    W_readout += delta
+                    
+                    # 2. Update Hippocampus (Fast One-Shot)
+                    # Store Sensory_Pattern -> Target_Class_Vector
+                    hippocampus.store(sensory_trace, target_vec)
+
+            # --- EVALUATION ---
+            pred_class = torch.argmax(final_probs).item()
+            is_correct = (pred_class == target_class)
+            
+            recent_acc.append(1 if is_correct else 0)
+            if len(recent_acc) > 50: recent_acc.pop(0)
+            avg = np.mean(recent_acc) * 100
+            
+            status = "✅" if is_correct else "❌"
+            mem_str = "🧠(Mem)" if used_memory else "🔹(New)"
+            
+            print(f"Ep {episode:03d} | Q: {problem_text} | Tgt: {target_class} | Pred: {pred_class} | Acc: {avg:.1f}% | {status} {mem_str}")
+            
+            if episode % 25 == 0:
+                print("-" * 60)
+
+    except KeyboardInterrupt:
+        print("\n🛑 Training stopped.")
+
+if __name__ == "__main__":
+    main()
