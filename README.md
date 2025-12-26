@@ -71,8 +71,8 @@ Mergen is a research framework. It is currently set up to demonstrate **symbolic
 ### Installation
 
 ```bash
-git clone https://github.com/YourUsername/mergen-core.git
-cd mergen-core
+git clone https://github.com/VertexCorporation/Mergen.git
+cd Mergen
 pip install -r requirements.txt
 ```
 
