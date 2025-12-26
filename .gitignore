@@ -1,0 +1,11 @@
+# _pycache folders
+__pycache__/
+anatomy/__pycache__/
+connectivity/__pycache__/
+datasets/__pycache__/
+engine/__pycache__/
+utils/__pycache__/
+visualization/__pycache__/
+
+# log folder
+logs/
