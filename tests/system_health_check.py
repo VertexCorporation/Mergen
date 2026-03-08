@@ -5,7 +5,7 @@ import torch
 import time
 import numpy as np
 
-# Proje kök dizinini ekle
+# Add project root directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import config as cfg
@@ -72,7 +72,7 @@ def run_diagnostics(steps=500):
         # E. Take Snapshot every 50 steps
         if t % 50 == 0:
             telemetry.take_snapshot(t, spikes_s, spikes_m)
-            # Canlılık belirtisi
+            # Progress indicator
             print(f"   Step {t}/{steps} | Sensory Rate: {spikes_s.mean():.4f} | Motor Rate: {spikes_m.mean():.4f} | Time: {duration*1000:.2f}ms")
 
     total_time = time.time() - start_global

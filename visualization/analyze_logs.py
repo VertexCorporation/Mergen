@@ -21,23 +21,23 @@ def analyze(run_name="diagnostic_run_01"):
     # Panel 1: Firing Rates (Epilepsy Check)
     axs[0].plot(history['sensory_activity'], label='Sensory', color='orange', alpha=0.7)
     axs[0].plot(history['motor_activity'], label='Motor', color='cyan', alpha=0.7)
-    axs[0].set_title("Nöron Ateşleme Oranları (Firing Rates)")
-    axs[0].set_ylabel("Aktif Nöron Oranı (0.0 - 1.0)")
-    axs[0].axhline(y=0.05, color='r', linestyle='--', label='Hedef (Homeostasis)')
+    axs[0].set_title("Neuron Firing Rates")
+    axs[0].set_ylabel("Active Neuron Ratio (0.0 - 1.0)")
+    axs[0].axhline(y=0.05, color='r', linestyle='--', label='Target (Homeostasis)')
     axs[0].legend()
     axs[0].grid(True, alpha=0.2)
     
     # Panel 2: Global Workspace Activation
     axs[1].plot(history['workspace_activity'], color='magenta')
-    axs[1].set_title("Global Workspace Aktivasyonu (Bilinç Akışı)")
-    axs[1].set_ylabel("Aktivite")
+    axs[1].set_title("Global Workspace Activation")
+    axs[1].set_ylabel("Activity")
     axs[1].grid(True, alpha=0.2)
     
     # Panel 3: Performance Latency
     axs[2].plot(history['computation_time'], color='lime')
-    axs[2].set_title("Hesaplama Süresi (ms)")
-    axs[2].set_ylabel("Saniye")
-    axs[2].set_xlabel("Adım (Step)")
+    axs[2].set_title("Computation Time (ms)")
+    axs[2].set_ylabel("Seconds")
+    axs[2].set_xlabel("Step")
     axs[2].grid(True, alpha=0.2)
     
     plt.tight_layout()
@@ -46,7 +46,7 @@ def analyze(run_name="diagnostic_run_01"):
     plt.show()
 
     # --- PLOT 2: SNAPSHOTS (HEATMAPS) ---
-    # İlk ve Son anın görüntülerini çizelim
+    # Plot the first and last snapshots
     if len(snapshots) > 0:
         steps = sorted(snapshots.keys())
         first_step = steps[0]

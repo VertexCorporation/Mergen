@@ -8,19 +8,19 @@ class TelemetryBox:
     def __init__(self, run_name="test_run"):
         self.history = {
             'step': [],
-            'sensory_activity': [], # Ortalama ateşleme hızı
+            'sensory_activity': [], # Average firing rate
             'motor_activity': [],
             'workspace_activity': [],
             'accuracy': [],
-            'memory_hits': [], # Hafıza kullanıldı mı?
+            'memory_hits': [], # Was memory used?
             'computation_time': []
         }
-        self.snapshots = {} # Detaylı ısı haritaları için
+        self.snapshots = {} # For detailed heatmaps
         self.run_name = run_name
         self.start_time = time.time()
 
     def log_step(self, step, sensory, motor, workspace, acc, mem_hit, duration):
-        # GPU'dan CPU'ya sadece "Scalar" (tek sayı) çekiyoruz, bu hızlıdır.
+        # Pulling only "Scalar" (single number) from GPU to CPU, this is fast.
         self.history['step'].append(step)
         self.history['sensory_activity'].append(sensory.float().mean().item())
         self.history['motor_activity'].append(motor.float().mean().item())
@@ -30,8 +30,8 @@ class TelemetryBox:
         self.history['computation_time'].append(duration)
 
     def take_snapshot(self, step, sensory_spikes, motor_spikes):
-        # Her adımda değil, sadece belirli aralıklarda tam resim alıyoruz
-        # Veriyi sıkıştırıp (Downsample) saklayalım yoksa disk dolar.
+        # Not every step, only taking full images at certain intervals
+        # Compress the data (Downsample) and save it, otherwise disk fills up.
         # 100x100 -> 50x50 gibi
         s_img = torch.nn.functional.interpolate(sensory_spikes.unsqueeze(0).unsqueeze(0), scale_factor=0.5).squeeze().cpu().numpy()
         m_img = torch.nn.functional.interpolate(motor_spikes.unsqueeze(0).unsqueeze(0), scale_factor=0.5).squeeze().cpu().numpy()
