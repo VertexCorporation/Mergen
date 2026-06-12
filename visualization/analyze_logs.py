@@ -5,7 +5,7 @@ import os
 import sys
 
 def analyze(run_name="diagnostic_run_01"):
-    path = f"logs/{run_name}_data.npz"
+    path = f"../logs/{run_name}_data.npz"
     if not os.path.exists(path):
         print(f"❌ Log file not found: {path}")
         return
@@ -70,4 +70,4 @@ def analyze(run_name="diagnostic_run_01"):
         plt.show()
 
 if __name__ == "__main__":
-    analyze()
+    analyze("training_session_v3")

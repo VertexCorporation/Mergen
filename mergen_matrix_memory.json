@@ -1,0 +1,1525 @@
+{
+  "version": "1.0",
+  "created": "2026-04-30T18:45:00.583568",
+  "stats": {
+    "total_analyses": 163,
+    "intent_counts": {
+      "INQUIRY": 58,
+      "GREETING": 42,
+      "UNKNOWN": 20,
+      "IDENTITY": 33,
+      "COMMAND": 2,
+      "AFFIRMATION": 5,
+      "WELLBEING": 1,
+      "GRATITUDE": 2
+    },
+    "low_confidence_events": 23,
+    "avg_confidence": 0.7235276073619646,
+    "subject_frequency": {
+      "Araba": 5,
+      "Elma": 7,
+      "Nasılsın": 12,
+      "Adana": 1,
+      "Özet": 1,
+      "Özetle": 1,
+      "Özelliklerin": 1,
+      "Adın": 22,
+      "Kendinden": 1,
+      "5 5": 1,
+      "Uyumsuz": 1,
+      "Uyumsuzluk": 5,
+      "Daha": 2,
+      "Nesin": 1,
+      "Toplama": 1,
+      "Çok": 2,
+      "Büyük": 8,
+      "Uyumsuzluğu": 1,
+      "Ev": 7,
+      "Uyumsuzuzluk": 1,
+      "Uyumsuzluku": 1,
+      "Elmas": 1,
+      "Sen": 7,
+      "Kendini": 4,
+      "Kitap": 5,
+      "Güzel": 5,
+      "Su": 5,
+      "Okumak": 5,
+      "Teşekkür": 2,
+      "Günlük": 1,
+      "Ayak": 3,
+      "Elkitabı": 1,
+      "Biliyorsun": 1,
+      "Kar": 1,
+      "Kayra": 1
+    }
+  },
+  "analyze_logs": [
+    {
+      "ts": 1777563903.1419327,
+      "input": "araba nedir?",
+      "intent": "INQUIRY",
+      "subject": "Araba",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777563908.1250625,
+      "input": "elma nedir?",
+      "intent": "INQUIRY",
+      "subject": "Elma",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777563912.761679,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777563915.4152863,
+      "input": "s",
+      "intent": "UNKNOWN",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777563918.852286,
+      "input": "adana nedir",
+      "intent": "INQUIRY",
+      "subject": "Adana",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564598.600518,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564600.5973625,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564602.2234015,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564603.5113237,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564604.9304934,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564608.728305,
+      "input": "nasılsın dostum",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564610.765221,
+      "input": "s",
+      "intent": "UNKNOWN",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777564613.943677,
+      "input": "araba nedir?",
+      "intent": "INQUIRY",
+      "subject": "Araba",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564627.2026143,
+      "input": "özet yapabilirmisin?",
+      "intent": "INQUIRY",
+      "subject": "Özet",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777564632.054615,
+      "input": "özetle",
+      "intent": "UNKNOWN",
+      "subject": "Özetle",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777564717.412577,
+      "input": "5 + 4 =?",
+      "intent": "INQUIRY",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777564721.2735395,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777564736.212826,
+      "input": "özelliklerin neler",
+      "intent": "INQUIRY",
+      "subject": "Özelliklerin",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777565821.9401824,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777565830.5809305,
+      "input": "kendinden bahset",
+      "intent": "UNKNOWN",
+      "subject": "Kendinden",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777565835.568146,
+      "input": "elma nedir?",
+      "intent": "INQUIRY",
+      "subject": "Elma",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777565840.9982598,
+      "input": "5 + 5 kaçtır",
+      "intent": "UNKNOWN",
+      "subject": "5 5",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777565907.4208462,
+      "input": "uyumsuz nedir?",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuz",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777566075.4434736,
+      "input": "uyumsuzluk nedir?",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuzluk",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777566104.1597557,
+      "input": "daha farklı kelimelerle anlat",
+      "intent": "INQUIRY",
+      "subject": "Daha",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777566120.1690037,
+      "input": "da",
+      "intent": "UNKNOWN",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777566121.302059,
+      "input": "daha",
+      "intent": "UNKNOWN",
+      "subject": "Daha",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777566146.683521,
+      "input": "da elma demektir",
+      "intent": "UNKNOWN",
+      "subject": "Elma",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777566168.300518,
+      "input": "uyumsuzluk nedir?",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuzluk",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777566209.030894,
+      "input": "nesin sen?",
+      "intent": "IDENTITY",
+      "subject": "Nesin",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777566222.746068,
+      "input": "toplama yapabilirmisin?",
+      "intent": "INQUIRY",
+      "subject": "Toplama",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777567002.345516,
+      "input": "çok nedir?",
+      "intent": "INQUIRY",
+      "subject": "Çok",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567010.739323,
+      "input": "çok nedir",
+      "intent": "INQUIRY",
+      "subject": "Çok",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567017.45297,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567026.0894864,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567445.0666602,
+      "input": "SELAM",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567446.946063,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567450.8751585,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567457.1301131,
+      "input": "elma nedir?",
+      "intent": "INQUIRY",
+      "subject": "Elma",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567485.7177312,
+      "input": "uyumsuzluğu bana anlatırmısın",
+      "intent": "UNKNOWN",
+      "subject": "Uyumsuzluğu",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777567489.5661538,
+      "input": "uyumsuzluk",
+      "intent": "UNKNOWN",
+      "subject": "Uyumsuzluk",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777567569.3603077,
+      "input": "bir cümle kur",
+      "intent": "COMMAND",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777567576.7541702,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568193.3206367,
+      "input": "uyumsuzluk nedir?",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuzluk",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568200.7389941,
+      "input": "uyumsuzuzluk nedir?",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuzuzluk",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568206.3121576,
+      "input": "uyumsuzluk nedir",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuzluk",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568208.624996,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568212.9298818,
+      "input": "uyumsuzluku anlat",
+      "intent": "INQUIRY",
+      "subject": "Uyumsuzluku",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568408.1699896,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568409.7353468,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568411.9068494,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568413.3570151,
+      "input": "a",
+      "intent": "UNKNOWN",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777568414.504954,
+      "input": "araba",
+      "intent": "UNKNOWN",
+      "subject": "Araba",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777568416.8780649,
+      "input": "araba nedir",
+      "intent": "INQUIRY",
+      "subject": "Araba",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568498.4927943,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568528.0862722,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568529.4562378,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568546.284104,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568548.8517497,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568550.5014513,
+      "input": "elmas",
+      "intent": "UNKNOWN",
+      "subject": "Elmas",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777568551.5994487,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568608.9181972,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568608.9183948,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568608.9977746,
+      "input": "sen kimsin",
+      "intent": "IDENTITY",
+      "subject": "Sen",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568608.9979599,
+      "input": "sen kimsin",
+      "intent": "IDENTITY",
+      "subject": "Sen",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568609.0735445,
+      "input": "kendini tanıt",
+      "intent": "IDENTITY",
+      "subject": "Kendini",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568609.0738573,
+      "input": "kendini tanıt",
+      "intent": "IDENTITY",
+      "subject": "Kendini",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568609.1719017,
+      "input": "merhaba",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568609.1720064,
+      "input": "merhaba",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568609.2057998,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568609.20594,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.0969124,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.0970812,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.1681938,
+      "input": "sen kimsin",
+      "intent": "IDENTITY",
+      "subject": "Sen",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.1683743,
+      "input": "sen kimsin",
+      "intent": "IDENTITY",
+      "subject": "Sen",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.2344422,
+      "input": "kendini tanıt",
+      "intent": "IDENTITY",
+      "subject": "Kendini",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.2345839,
+      "input": "kendini tanıt",
+      "intent": "IDENTITY",
+      "subject": "Kendini",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.3330066,
+      "input": "merhaba",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.3331084,
+      "input": "merhaba",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.3622642,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568647.3623538,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.372578,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.4448164,
+      "input": "sen kimsin",
+      "intent": "IDENTITY",
+      "subject": "Sen",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.5132842,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.5174134,
+      "input": "kitap nedir",
+      "intent": "INQUIRY",
+      "subject": "Kitap",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.5389001,
+      "input": "güzel ne demek",
+      "intent": "AFFIRMATION",
+      "subject": "Güzel",
+      "confidence": 0.647,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.5894608,
+      "input": "su nedir",
+      "intent": "INQUIRY",
+      "subject": "Su",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.5941067,
+      "input": "okumak nedir",
+      "intent": "INQUIRY",
+      "subject": "Okumak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.6268792,
+      "input": "sen nasılsın",
+      "intent": "GREETING",
+      "subject": "Sen",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.6986449,
+      "input": "ne yapıyorsun",
+      "intent": "WELLBEING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.7272205,
+      "input": "bir cümle kur",
+      "intent": "COMMAND",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.7840052,
+      "input": "merhaba",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.8159306,
+      "input": "teşekkür ederim",
+      "intent": "GRATITUDE",
+      "subject": "Teşekkür",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568664.870071,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568731.737216,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568743.678476,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568743.9656892,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568743.9788232,
+      "input": "kitap nedir",
+      "intent": "INQUIRY",
+      "subject": "Kitap",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568744.1820498,
+      "input": "su nedir",
+      "intent": "INQUIRY",
+      "subject": "Su",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568744.1935873,
+      "input": "okumak nedir",
+      "intent": "INQUIRY",
+      "subject": "Okumak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568744.4155486,
+      "input": "güzel ne demek",
+      "intent": "AFFIRMATION",
+      "subject": "Güzel",
+      "confidence": 0.647,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568982.5837848,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568982.9714339,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568983.0191436,
+      "input": "kitap nedir",
+      "intent": "INQUIRY",
+      "subject": "Kitap",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568983.230532,
+      "input": "su nedir",
+      "intent": "INQUIRY",
+      "subject": "Su",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568983.2456303,
+      "input": "okumak nedir",
+      "intent": "INQUIRY",
+      "subject": "Okumak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568983.458987,
+      "input": "güzel ne demek",
+      "intent": "AFFIRMATION",
+      "subject": "Güzel",
+      "confidence": 0.647,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777568983.6406672,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569030.9300969,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569069.9105608,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569070.0758014,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569144.8764808,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569191.263575,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569191.5647159,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569191.580481,
+      "input": "kitap nedir",
+      "intent": "INQUIRY",
+      "subject": "Kitap",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569191.794939,
+      "input": "su nedir",
+      "intent": "INQUIRY",
+      "subject": "Su",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569191.8114145,
+      "input": "okumak nedir",
+      "intent": "INQUIRY",
+      "subject": "Okumak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569192.039201,
+      "input": "güzel ne demek",
+      "intent": "AFFIRMATION",
+      "subject": "Güzel",
+      "confidence": 0.647,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569192.2436428,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569218.2543843,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569218.5560687,
+      "input": "sen kimsin",
+      "intent": "IDENTITY",
+      "subject": "Sen",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569218.8817925,
+      "input": "ev nedir",
+      "intent": "INQUIRY",
+      "subject": "Ev",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569218.8939252,
+      "input": "kitap nedir",
+      "intent": "INQUIRY",
+      "subject": "Kitap",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569219.1040032,
+      "input": "su nedir",
+      "intent": "INQUIRY",
+      "subject": "Su",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569219.1165369,
+      "input": "okumak nedir",
+      "intent": "INQUIRY",
+      "subject": "Okumak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569219.3383615,
+      "input": "güzel ne demek",
+      "intent": "AFFIRMATION",
+      "subject": "Güzel",
+      "confidence": 0.647,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569219.527819,
+      "input": "büyük ne demek",
+      "intent": "INQUIRY",
+      "subject": "Büyük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569219.7622762,
+      "input": "merhaba",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569219.906678,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569220.1929605,
+      "input": "teşekkür ederim",
+      "intent": "GRATITUDE",
+      "subject": "Teşekkür",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569242.3223388,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569244.0816321,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569250.2006133,
+      "input": "araba nedir?",
+      "intent": "INQUIRY",
+      "subject": "Araba",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569255.7487056,
+      "input": "elma nedir?",
+      "intent": "INQUIRY",
+      "subject": "Elma",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569261.5615523,
+      "input": "gü",
+      "intent": "UNKNOWN",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777569264.4056525,
+      "input": "günlük nedir",
+      "intent": "INQUIRY",
+      "subject": "Günlük",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569282.387844,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569283.6786993,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569285.0358229,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569286.4727619,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569288.3177092,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777569290.9246209,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777989790.9613059,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777989792.3753095,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777989793.5607314,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777989794.7945712,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777990932.3651602,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777990934.146906,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777990937.3336864,
+      "input": "elma nedir?",
+      "intent": "INQUIRY",
+      "subject": "Elma",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777990944.1677353,
+      "input": "ayak nedir?",
+      "intent": "INQUIRY",
+      "subject": "Ayak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777990947.6535463,
+      "input": "el",
+      "intent": "UNKNOWN",
+      "subject": null,
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777990951.7517157,
+      "input": "elkitabı",
+      "intent": "UNKNOWN",
+      "subject": "Elkitabı",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777990963.8496997,
+      "input": "ne biliyorsun",
+      "intent": "UNKNOWN",
+      "subject": "Biliyorsun",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777991531.94123,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777991533.9658024,
+      "input": "adın ne?",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777991537.4978762,
+      "input": "ayak nedir?",
+      "intent": "INQUIRY",
+      "subject": "Ayak",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777991543.08261,
+      "input": "elma nedir",
+      "intent": "INQUIRY",
+      "subject": "Elma",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777992040.830841,
+      "input": "selam",
+      "intent": "GREETING",
+      "subject": null,
+      "confidence": 0.7,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777992042.382484,
+      "input": "adın ne",
+      "intent": "IDENTITY",
+      "subject": "Adın",
+      "confidence": 0.9,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777992044.4380646,
+      "input": "nasılsın",
+      "intent": "GREETING",
+      "subject": "Nasılsın",
+      "confidence": 0.6,
+      "is_low_confidence": false
+    },
+    {
+      "ts": 1777992048.2800374,
+      "input": "ayak",
+      "intent": "UNKNOWN",
+      "subject": "Ayak",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777992050.6891804,
+      "input": "kar",
+      "intent": "UNKNOWN",
+      "subject": "Kar",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    },
+    {
+      "ts": 1777992054.3990655,
+      "input": "kayra",
+      "intent": "UNKNOWN",
+      "subject": "Kayra",
+      "confidence": 0.1,
+      "is_low_confidence": true
+    }
+  ],
+  "low_confidence_queue": [
+    {
+      "ts": 1777563915.4152863,
+      "input": "s",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777564610.765221,
+      "input": "s",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777564627.2026143,
+      "input": "özet yapabilirmisin?",
+      "intent": "INQUIRY",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777564632.054615,
+      "input": "özetle",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777564717.412577,
+      "input": "5 + 4 =?",
+      "intent": "INQUIRY",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777565830.5809305,
+      "input": "kendinden bahset",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777565840.9982598,
+      "input": "5 + 5 kaçtır",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777566120.1690037,
+      "input": "da",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777566121.302059,
+      "input": "daha",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777566146.683521,
+      "input": "da elma demektir",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777566222.746068,
+      "input": "toplama yapabilirmisin?",
+      "intent": "INQUIRY",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777567485.7177312,
+      "input": "uyumsuzluğu bana anlatırmısın",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777567489.5661538,
+      "input": "uyumsuzluk",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777568413.3570151,
+      "input": "a",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777568414.504954,
+      "input": "araba",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777568550.5014513,
+      "input": "elmas",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777569261.5615523,
+      "input": "gü",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777990947.6535463,
+      "input": "el",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777990951.7517157,
+      "input": "elkitabı",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777990963.8496997,
+      "input": "ne biliyorsun",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777992048.2800374,
+      "input": "ayak",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777992050.6891804,
+      "input": "kar",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    },
+    {
+      "ts": 1777992054.3990655,
+      "input": "kayra",
+      "intent": "UNKNOWN",
+      "confidence": 0.1,
+      "status": "pending_review"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+Matematik, sayılar, şekiller ve kalıplar arasındaki ilişkileri inceleyen bilim dalıdır. Temel matematik işlemleri toplama, çıkarma, çarpma ve bölmedir.
+
+Toplama işlemi, iki veya daha fazla sayıyı bir araya getirme işlemidir. Toplama işleminin sembolü artı (+) işaretidir. Örneğin 3 + 5 = 8 sonucunu verir. Toplama işleminin değişme özelliği vardır: a + b = b + a.
+
+Çıkarma işlemi, bir sayıdan diğerini çıkarma işlemidir. Çıkarma işleminin sembolü eksi (-) işaretidir. Örneğin 10 - 4 = 6 sonucunu verir. Çıkarma işleminin değişme özelliği yoktur: a - b ≠ b - a.
+
+Çarpma işlemi, bir sayıyı başka bir sayı ile tekrarlı toplama işlemidir. Çarpma işleminin sembolü çarpı (×) veya nokta (·) işaretidir. Örneğin 4 × 3 = 12 sonucunu verir. Çarpma işleminin değişme özelliği vardır: a × b = b × a.
+
+Bölme işlemi, bir sayıyı eşit parçalara ayırma işlemidir. Bölme işleminin sembolü bölü (÷) veya eğik çizgi (/) işaretidir. Örneğin 12 ÷ 3 = 4 sonucunu verir. Sıfıra bölme tanımsızdır.
+
+Üslü sayılar, bir sayının kendisiyle tekrarlı çarpımını ifade eder. aⁿ ifadesinde a taban, n üst (üs) olarak adlandırılır. Örneğin 2³ = 2 × 2 × 2 = 8 sonucunu verir. Üslü sayıların özellikleri arasında aᵐ × aⁿ = aᵐ⁺ⁿ ve (aᵐ)ⁿ = aᵐˣⁿ sayılabilir.
+
+Köklü sayılar, üslü sayıların tersi olarak düşünülebilir. √a ifadesi, karesi a olan pozitif sayıyı ifade eder. Örneğin √9 = 3 sonucunu verir. Küpkök ∛a ifadesi, küpü a olan sayıyı ifade eder. Örneğin ∛27 = 3 sonucunu verir.
+
+Fonksiyon, bir girdi kümesindeki her elemanı çıktı kümesindeki tek bir elemanla eşleyen kuraldır. f(x) = 2x + 1 ifadesi bir fonksiyondur. Bu fonksiyona x = 3 girildiğinde f(3) = 2 × 3 + 1 = 7 sonucu elde edilir.
+
+Kombinasyon, n elemanlı bir kümeden r elemanlı alt küme seçme yöntemlerinin sayısıdır. C(n,r) = n! / (r! × (n-r)!) formülü ile hesaplanır. Örneğin 5 elemandan 2 eleman seçmek C(5,2) = 5! / (2! × 3!) = 10 farklı şekilde mümkündür.
+
+Permütasyon, n elemanlı bir kümenin sıralı düzenlenişlerinin sayısıdır. P(n,r) = n! / (n-r)! formülü ile hesaplanır. Örneğin 5 elemanı 3lü sıralamak P(5,3) = 5! / 2! = 60 farklı şekilde mümkündür.

@@ -6,8 +6,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float32
 
 # --- 2. ANATOMY SCALE ---
-H_CORTEX = 320   
-W_CORTEX = 320  
+H_CORTEX = 400   
+W_CORTEX = 500  
 N_NEURONS = H_CORTEX * W_CORTEX  # ~102k Neurons
 # Need as many classes as vocabulary for chat, let's say 50 for now
 N_CLASSES = 50  
