@@ -138,11 +138,93 @@ def run_sync_dream(mx_path: str, cycles: int, device: str):
     if device == 'cuda':
         torch.cuda.empty_cache()
 
+def train_file(file_path: str, engine: CorticalColumn, wernicke: WernickeArea, vocab: MergenVocab, args, vocab_size: int, device: str) -> int:
+    """Tek bir dosyayı (core curriculum veya wiki partı) eğitir."""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        sentences = [line.strip() for line in f if line.strip()]
+
+    print(f"[Eğitim] Cümle sayısı: {len(sentences):,}")
+    sentence_counter = 0
+
+    for epoch in range(args.epochs_per_chunk):
+        print(f"  [Epoch] {epoch+1}/{args.epochs_per_chunk}")
+        random.shuffle(sentences)
+
+        total_rpe = 0.0
+        total_dw = 0.0
+        processed_in_epoch = 0
+
+        for idx, raw_sentence in enumerate(sentences):
+            cleaned = clean_turkish_text(raw_sentence)
+            words = cleaned.split()
+            if not words:
+                continue
+
+            engine.reset_traces()
+            
+            for word in words:
+                word_id = vocab.word_to_id.get(word, None)
+                if word_id is None:
+                    continue
+                    
+                pre_train = wernicke.perceive(word)
+                post = torch.zeros(vocab_size, device=device)
+                post[word_id] = 1.0
+
+                for t in range(pre_train.shape[0]):
+                    pre_t = pre_train[t]
+                    
+                    if hasattr(engine, '_dopamine'):
+                        engine._dopamine.value_estimate = 0.0
+
+                    telemetry = engine.learning_step(
+                        pre_spikes=pre_t,
+                        post_spikes=post,
+                        reward=args.stdp_reward,
+                        som_lr=args.som_lr
+                    )
+                    total_rpe += telemetry.get('rpe', 0.0)
+                    total_dw += telemetry.get('delta_w', 0.0)
+                    processed_in_epoch += 1
+
+            sentence_counter += 1
+
+            # Senkronize Uyku Döngüsü (Auto-Sleep)
+            if sentence_counter % args.sleep_interval == 0:
+                save_weights(args.mx_path, engine)
+                run_sync_dream(args.mx_path, args.sleep_cycles, args.device)
+                load_weights(args.mx_path, engine, args.device)
+                print(f"  [Sleep-Sync] Eğitime devam ediliyor... (Cümle: {sentence_counter})")
+
+            # Telemetri
+            if idx > 0 and idx % 200 == 0:
+                avg_rpe = total_rpe / max(1, processed_in_epoch)
+                avg_dw = total_dw / max(1, processed_in_epoch)
+                print(f"    İlerleme: {idx:>6}/{len(sentences):<6} | Ort. RPE: {avg_rpe:.4f} | Ort. dW: {avg_dw:.6f}")
+
+    return sentence_counter
+
+class DualLogger(object):
+    """Hem terminale hem de bir dosyaya eşzamanlı olarak çıktı yazar."""
+    def __init__(self, filepath: str):
+        self.terminal = sys.stdout
+        self.log = open(filepath, "a", encoding="utf-8")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+        self.log.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
+
 def main():
     parser = argparse.ArgumentParser(description="Mergen Google Colab Büyük Eğitim Scripti")
     parser.add_argument("--corpus_dir", type=str, required=True, help="Wikipedia .txt chunk dizini (Drive)")
     parser.add_argument("--local_dir", type=str, default="/content/", help="Yerel hızlı I/O dizini")
     parser.add_argument("--checkpoint_dir", type=str, required=True, help="Checkpoint Drive dizini")
+    parser.add_argument("--core_path", type=str, default="data/training/core_curriculum_v1.txt", help="Çekirdek müfredat dosya yolu")
     parser.add_argument("--mx_path", type=str, default="./mergen_weights.mx", help="Weights dosya yolu")
     parser.add_argument("--vocab_path", type=str, default="./mergen_vocab.json", help="Vocab dosya yolu")
     parser.add_argument("--sleep_interval", type=int, default=500, help="Kaç cümlede bir uyku konsolidasyonu çalışsın")
@@ -156,6 +238,14 @@ def main():
     # Klasörleri doğrula
     os.makedirs(args.local_dir, exist_ok=True)
     os.makedirs(args.checkpoint_dir, exist_ok=True)
+
+    # Çift günlük kaydediciyi etkinleştir (logs/ klasörü altında)
+    os.makedirs("logs", exist_ok=True)
+    log_file_path = os.path.join("logs", "training.log")
+    sys.stdout = DualLogger(log_file_path)
+    sys.stderr = DualLogger(log_file_path)
+
+    print(f"\n[Logging] Eğitim logları hem konsola hem de dosyaya yazılıyor: {log_file_path}")
 
     # 1. Vocab ve Model Yükle
     print(f"\n[Colab-Train] Model yükleniyor (Cihaz: {args.device.upper()})...")
@@ -224,123 +314,106 @@ def main():
     # 2. Eğitim Durum Kontrolü (Drive)
     state_file_path = os.path.join(args.checkpoint_dir, "colab_training_state.json")
     processed_chunks = []
+    core_completed = False
+    total_sentences_trained = 0
+
     if os.path.exists(state_file_path):
         try:
             with open(state_file_path, 'r') as sf:
                 state_data = json.load(sf)
                 processed_chunks = state_data.get("processed_chunks", [])
-                print(f"[Colab-Train] Kaldığı yerden devam ediliyor. İşlenen parça sayısı: {len(processed_chunks)}")
+                core_completed = state_data.get("core_completed", False)
+                total_sentences_trained = state_data.get("total_sentences_trained", 0)
+                print(f"[Colab-Train] Kaldığı yerden devam ediliyor.")
+                print(f"  - Çekirdek Müfredat Tamamlandı: {core_completed}")
+                print(f"  - İşlenen Wiki parça sayısı: {len(processed_chunks)}")
+                print(f"  - Toplam eğitilen cümle sayısı: {total_sentences_trained}")
         except Exception as se:
             print(f"[Colab-Train] Durum dosyası okuma hatası: {se}")
 
-    # Chunk listesini al
+    # 3. Çekirdek Müfredat Eğitimi (İlk Öncelik)
+    if not core_completed:
+        print(f"\n" + "="*70)
+        print(f"[Curriculum] ÇEKİRDEK MÜFREDAT EĞİTİMİ BAŞLIYOR: {args.core_path}")
+        print("="*70)
+        
+        if not os.path.exists(args.core_path):
+            print(f"Hata: Çekirdek müfredat dosyası {args.core_path} bulunamadı.")
+            sys.exit(1)
+
+        # Yerel diske kopyala
+        core_local_path = os.path.join(args.local_dir, "core_curriculum_v1.txt")
+        shutil.copy2(args.core_path, core_local_path)
+        
+        # Eğit
+        sentences_trained = train_file(core_local_path, engine, wernicke, vocab, args, vocab_size, args.device)
+        total_sentences_trained += sentences_trained
+        
+        # Yerel dosyayı temizle
+        if os.path.exists(core_local_path):
+            os.remove(core_local_path)
+            
+        # İlk part/core bittiğinde rüya döngüsü ve kaydetme
+        save_weights(args.mx_path, engine)
+        run_sync_dream(args.mx_path, args.sleep_cycles, args.device)
+        load_weights(args.mx_path, engine, args.device)
+        
+        # Drive'a yedekle
+        drive_mx_core = os.path.join(args.checkpoint_dir, "mergen_weights_core_completed.mx")
+        shutil.copy2(args.mx_path, drive_mx_core)
+        shutil.copy2(args.mx_path, os.path.join(args.checkpoint_dir, "mergen_weights.mx"))
+        print(f"[Backup] Çekirdek müfredat ağırlıkları Drive'a yedeklendi: {drive_mx_core}")
+        
+        # Durumu güncelle ve kaydet
+        core_completed = True
+        with open(state_file_path, 'w') as sf:
+            json.dump({
+                "core_completed": core_completed,
+                "processed_chunks": processed_chunks,
+                "last_update": datetime.now().isoformat(),
+                "total_sentences_trained": total_sentences_trained,
+                "last_processed_file": "core_curriculum_v1.txt"
+            }, sf, indent=4)
+        print(f"[Backup] Çekirdek müfredat tamamlandı durum kaydı yapıldı: {state_file_path}")
+
+    # 4. Wikipedia Partları Eğitim Döngüsü
     all_chunks = sorted([f for f in os.listdir(args.corpus_dir) if f.endswith(".txt")])
     unprocessed_chunks = [c for c in all_chunks if c not in processed_chunks]
 
     if not unprocessed_chunks:
-        print("[Colab-Train] İşlenecek yeni parça kalmadı! Eğitim tamamlandı.")
+        print("[Colab-Train] İşlenecek yeni Wikipedia parçası kalmadı! Eğitim tamamlandı.")
         return
 
-    print(f"[Colab-Train] Toplam parça: {len(all_chunks)}, Kalan parça: {len(unprocessed_chunks)}")
-
-    # 3. Ana Parçalı I/O Eğitim Döngüsü
-    sentence_counter = 0
+    print(f"[Colab-Train] Toplam Wiki parçası: {len(all_chunks)}, Kalan parça: {len(unprocessed_chunks)}")
 
     for chunk_name in unprocessed_chunks:
         chunk_drive_path = os.path.join(args.corpus_dir, chunk_name)
         chunk_local_path = os.path.join(args.local_dir, chunk_name)
 
         print(f"\n" + "="*70)
-        print(f"[Chunk] Sıradaki parça kopyalanıyor: {chunk_name}")
+        print(f"[Wiki-Chunk] Sıradaki parça kopyalanıyor: {chunk_name}")
         print("="*70)
 
         # Drive -> Yerel Disk I/O Transferi
         shutil.copy2(chunk_drive_path, chunk_local_path)
 
-        # Parça verisini yükle
-        with open(chunk_local_path, 'r', encoding='utf-8') as f:
-            sentences = [line.strip() for line in f if line.strip()]
+        # Eğit
+        sentences_trained = train_file(chunk_local_path, engine, wernicke, vocab, args, vocab_size, args.device)
+        total_sentences_trained += sentences_trained
 
-        print(f"[Chunk] Yerel diske kopyalandı. Cümle sayısı: {len(sentences):,}")
-
-        # Chunk içi epoch döngüsü
-        for epoch in range(args.epochs_per_chunk):
-            print(f"\n[Epoch] Parça: {chunk_name} | Epoch: {epoch+1}/{args.epochs_per_chunk}")
-            random.shuffle(sentences)
-
-            total_rpe = 0.0
-            total_dw = 0.0
-            processed_in_epoch = 0
-
-            for idx, raw_sentence in enumerate(sentences):
-                # Temiz Türkçe analizi
-                cleaned = clean_turkish_text(raw_sentence)
-                words = cleaned.split()
-                if not words:
-                    continue
-
-                # Cümle içi kelime sıralı eğitim adımları
-                engine.reset_traces()
-                
-                for word in words:
-                    word_id = vocab.word_to_id.get(word, None)
-                    if word_id is None:
-                        continue  # Vocab'da yoksa atla
-                        
-                    # Wernicke perceive: (time_steps, 768)
-                    pre_train = wernicke.perceive(word)
-                    
-                    # Target output (L5 target spike vector)
-                    post = torch.zeros(vocab_size, device=args.device)
-                    post[word_id] = 1.0
-
-                    # Kelimeyi sun
-                    for t in range(pre_train.shape[0]):
-                        pre_t = pre_train[t]
-                        
-                        # Dopamin critic sıfırla (kelime başına RPE hesabı için)
-                        if hasattr(engine, '_dopamine'):
-                            engine._dopamine.value_estimate = 0.0
-
-                        # SNN Learning Step (L4->L23->L5->L6)
-                        telemetry = engine.learning_step(
-                            pre_spikes=pre_t,
-                            post_spikes=post,
-                            reward=args.stdp_reward,
-                            som_lr=args.som_lr
-                        )
-                        total_rpe += telemetry.get('rpe', 0.0)
-                        total_dw += telemetry.get('delta_w', 0.0)
-                        processed_in_epoch += 1
-
-                sentence_counter += 1
-
-                # 4. Senkronize Uyku Döngüsü (Auto-Sleep)
-                if sentence_counter % args.sleep_interval == 0:
-                    # 1. Ağırlıkları kaydet
-                    save_weights(args.mx_path, engine)
-                    # 2. Uyku konsolidasyonunu senkronize çalıştır
-                    run_sync_dream(args.mx_path, args.sleep_cycles, args.device)
-                    # 3. Konsolide edilmiş ağırlıkları geri yükle
-                    load_weights(args.mx_path, engine, args.device)
-                    
-                    print(f"[Sleep-Sync] Eğitime devam ediliyor... (Cümle: {sentence_counter})")
-
-                # Telemetri gösterimi (her 100 cümlede bir)
-                if idx > 0 and idx % 100 == 0:
-                    avg_rpe = total_rpe / max(1, processed_in_epoch)
-                    avg_dw = total_dw / max(1, processed_in_epoch)
-                    print(f"  İlerleme: {idx:>6}/{len(sentences):<6} | Ort. RPE: {avg_rpe:.4f} | Ort. dW: {avg_dw:.6f}")
-
-        # 5. Yerel dosyayı temizle
+        # Yerel dosyayı temizle
         if os.path.exists(chunk_local_path):
             os.remove(chunk_local_path)
             print(f"[Chunk] Yerel dosya temizlendi: {chunk_local_path}")
 
-        # 6. Checkpoint Yedekleme (Drive'a yedekle)
+        # Her part bittiğinde rüya (dream) döngüsü ve kaydetme
+        save_weights(args.mx_path, engine)
+        run_sync_dream(args.mx_path, args.sleep_cycles, args.device)
+        load_weights(args.mx_path, engine, args.device)
+
+        # Checkpoint Yedekleme (Drive'a yedekle)
         drive_mx_backup = os.path.join(args.checkpoint_dir, f"mergen_weights_chunk_{chunk_name.replace('.txt', '')}.mx")
         shutil.copy2(args.mx_path, drive_mx_backup)
-        # Güncel halini de ana ağırlık olarak Drive'da tut
         shutil.copy2(args.mx_path, os.path.join(args.checkpoint_dir, "mergen_weights.mx"))
         print(f"[Backup] Ağırlıklar Drive'a yedeklendi: {drive_mx_backup}")
 
@@ -348,13 +421,15 @@ def main():
         processed_chunks.append(chunk_name)
         with open(state_file_path, 'w') as sf:
             json.dump({
+                "core_completed": core_completed,
                 "processed_chunks": processed_chunks,
                 "last_update": datetime.now().isoformat(),
-                "total_sentences_trained": sentence_counter
+                "total_sentences_trained": total_sentences_trained,
+                "last_processed_file": chunk_name
             }, sf, indent=4)
         print(f"[Backup] Eğitim durumu güncellendi: {state_file_path}")
 
-    print("\n[Colab-Train] Tüm unprocessed chunk'lar başarıyla tamamlandı! ☀️")
+    print("\n[Colab-Train] Tüm müfredat ve Wikipedia parçaları başarıyla tamamlandı! ☀️")
 
 if __name__ == '__main__':
     main()
