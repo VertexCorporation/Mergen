@@ -11,6 +11,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
+# Güvenlik Kilidi
+EVOLUTION_ENABLED = False
+
+if not EVOLUTION_ENABLED:
+    print("[Evolution] [X] OTOMATIK GELISIM SISTEMI GUVENLIK NEDENIYLE KAPATILMISTIR (EVOLUTION_ENABLED = False).")
+    print("[Evolution] Kodu aktif etmek icin auto_evolution.py dosyasindaki EVOLUTION_ENABLED degerini True yapin.")
+    sys.exit(0)
+
 # API anahtarını komut satırından al
 if len(sys.argv) < 2:
     print("Kullanım: python auto_evolution.py <OPENROUTER_API_KEY>")

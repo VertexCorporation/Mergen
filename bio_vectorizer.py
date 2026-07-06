@@ -72,12 +72,19 @@ class BioVectorizer:
         - h1 → hangi boyuta yazılacağını belirler
         - h2'nin yüksek biti → işareti belirler (±1)
         Bu, hash çakışmalarının birbirini iptal etmesini sağlar.
+
+        BUG-08 FIX: Eski kod n-gram başına 2 adet MD5 çağrısı yapıyordu.
+        Tek bir MD5 digest'i 32 hex karakter üretir; ilk 8 ve son 8 karakter
+        bağımsız hash değerleri olarak kullanılır — matematiksel kalite aynı,
+        işlem sayısı yarıya iner. 10.000 n-gram'lık bir belgede -10.000 çağrı.
         """
         vec = np.zeros(self.HASH_DIM, dtype=np.float32)
         for gram in self._ngrams(text):
             b = gram.encode("utf-8")
-            h1 = int(hashlib.md5(b).hexdigest()[:8], 16)
-            h2 = int(hashlib.md5(b + b"\xff").hexdigest()[:8], 16)
+            # BUG-08 FIX: Tek MD5 çağrısı — digest'in iki farklı bölümü
+            digest = hashlib.md5(b).hexdigest()   # 32 hex karakter
+            h1 = int(digest[:8],  16)             # İlk 8 karakter  → konum 1
+            h2 = int(digest[-8:], 16)             # Son 8 karakter  → konum 2 / işaret
             sign = 1.0 if (h2 & 1) else -1.0
             vec[h1 % self.HASH_DIM] += sign
             vec[h2 % self.HASH_DIM] += sign * 0.5   # İkincil sinyal

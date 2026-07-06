@@ -4,4 +4,4 @@ matplotlib>=3.5.0
 requests>=2.28.0
 chromadb>=0.4.0
 zeyrek>=0.1.0
-# sentence-transformers artık gerekli değil (BioVectorizer kullanılıyor)
+sentence-transformers

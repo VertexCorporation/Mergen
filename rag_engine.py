@@ -12,9 +12,18 @@ ChromaDB + BioVectorizer + HTMRetriever üçlüsü:
 """
 
 import hashlib
+import time
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+
+# ARCH-04 FIX: SemanticMemory dead code'dan kurtarıldı.
+# index_texts() artık her belgeyi SemanticMemory'ye de kaydeder.
+try:
+    from memory.semantic import SemanticMemory as _SemanticMemory
+    _SEMANTIC_AVAILABLE = True
+except ImportError:
+    _SEMANTIC_AVAILABLE = False
 
 
 class RAGEngine:
@@ -26,15 +35,19 @@ class RAGEngine:
     """
 
     COLLECTION_NAME = "mergen_bilgi_bio"   # "bio" son eki: BioVec ile oluşturuldu
+    DREAM_COLLECTION_NAME = "mergen_ruya_bio"
     EMBED_DIM       = 512                   # BioVectorizer çıkış boyutu
 
     def __init__(self, db_path: str = "./mergen_rag_db"):
         self.db_path     = db_path
         self._client     = None
         self._collection = None
+        self._dream_collection = None
         self._vectorizer = None
         self._htm        = None
         self._ready      = False
+        # ARCH-04 FIX: SemanticMemory artık aktif — deduplikasyon ve ağırlıklandırma
+        self._semantic_mem = _SemanticMemory() if _SEMANTIC_AVAILABLE else None
 
     # ──────────────────────────────────────────────────────────
     #  BAŞLATMA
@@ -68,9 +81,14 @@ class RAGEngine:
                 name=self.COLLECTION_NAME,
                 metadata={"hnsw:space": "cosine"},
             )
+            self._dream_collection = self._client.get_or_create_collection(
+                name=self.DREAM_COLLECTION_NAME,
+                metadata={"hnsw:space": "cosine"},
+            )
             existing = self._collection.count()
+            existing_dream = self._dream_collection.count()
             if verbose:
-                print(f"[Mergen RAG] ChromaDB hazır — {existing} kayıt.")
+                print(f"[Mergen RAG] ChromaDB hazır — {existing} kayıt, {existing_dream} rüya kaydı.")
         except Exception as e:
             if verbose:
                 print(f"[Mergen RAG] ChromaDB hatası: {e}")
@@ -124,7 +142,13 @@ class RAGEngine:
             return 0
 
         if metadatas is None:
-            metadatas = [{"source": source}] * len(texts)
+            # Varsayılan olarak semantik bellek tipini atayalım
+            metadatas = [{"source": source, "memory_type": "semantic"}] * len(texts)
+        else:
+            for meta in metadatas:
+                if "memory_type" not in meta:
+                    meta["memory_type"] = "semantic"
+                meta["source"] = meta.get("source", source)
 
         indexed = 0
         for i in range(0, len(texts), batch_size):
@@ -147,6 +171,19 @@ class RAGEngine:
                     metadatas=batch_m,
                 )
                 indexed += len(batch_t)
+
+                # ARCH-04 FIX: SemanticMemory'ye de yaz — deduplikasyon ve erişim sayacı
+                if self._semantic_mem is not None:
+                    for t in batch_t:
+                        try:
+                            self._semantic_mem.add_fact(
+                                text=t,
+                                concept_ids=[],   # Embedding gerektirmeden basit kayıt
+                                weight=1.0,
+                            )
+                        except Exception:
+                            pass
+
             except Exception as e:
                 print(f"[Mergen RAG] İndeksleme hatası (batch {i}): {e}")
 
@@ -161,6 +198,7 @@ class RAGEngine:
         query:         str,
         top_k:         int = 5,
         source_filter: Optional[str] = None,
+        memory_type:   Optional[str] = None,
         min_relevance: float = 0.25,
     ) -> List[Dict]:
         """
@@ -190,15 +228,26 @@ class RAGEngine:
                 "n_results":        n_candidates,
                 "include":          ["documents", "distances", "metadatas", "embeddings"],
             }
-            if source_filter:
-                kwargs["where"] = {"source": source_filter}
+            if source_filter or memory_type:
+                where_clause = {}
+                if source_filter:
+                    where_clause["source"] = source_filter
+                if memory_type:
+                    where_clause["memory_type"] = memory_type
+                
+                # Eğer birden fazla koşul varsa $and kullan
+                if len(where_clause) > 1:
+                    kwargs["where"] = {"$and": [{k: v} for k, v in where_clause.items()]}
+                else:
+                    kwargs["where"] = where_clause
 
             results = self._collection.query(**kwargs)
 
             docs      = results["documents"][0]
             distances = results["distances"][0]
             metas     = results["metadatas"][0]
-            embeddings = results.get("embeddings", [[]])[0]  # Aday vektörleri
+            raw_embeddings = results.get("embeddings")
+            embeddings = raw_embeddings[0] if raw_embeddings is not None else None
 
             if not docs:
                 return []
@@ -207,7 +256,7 @@ class RAGEngine:
             cos_scores = np.array([max(0.0, 1.0 - d) for d in distances], dtype=np.float32)
 
             # HTM yeniden sıralama (embedding'ler mevcutsa)
-            if self._htm is not None and embeddings and len(embeddings) == len(docs):
+            if self._htm is not None and embeddings is not None and len(embeddings) == len(docs):
                 cand_vecs = np.array(embeddings, dtype=np.float32)
                 ranked_idx = self._htm.rerank(
                     query_vec=q_vec,
@@ -234,6 +283,7 @@ class RAGEngine:
             return hits
 
         except Exception as e:
+            print(f"[Mergen RAG] Arama hatası: {e}")
             return []
 
     # ──────────────────────────────────────────────────────────
@@ -245,7 +295,8 @@ class RAGEngine:
             return 0
         try:
             return self._collection.count()
-        except Exception:
+        except Exception as e:
+            print(f"[Mergen RAG] Count error: {e}")
             return 0
 
     def is_source_indexed(self, source: str, min_count: int = 10) -> bool:
@@ -254,9 +305,108 @@ class RAGEngine:
         try:
             r = self._collection.get(where={"source": source}, limit=min_count)
             return len(r["ids"]) >= min_count
-        except Exception:
+        except Exception as e:
+            print(f"[Mergen RAG] Source status error ({source}): {e}")
             return False
 
     @property
     def ready(self) -> bool:
         return self._ready
+
+    def add_dream_fact(self, text: str, confidence: float = 0.2) -> bool:
+        """
+        Sentetik rüya çıkarımını (insight) mergen_ruya_bio koleksiyonuna kaydeder.
+        Katı metadata izolasyonu uygulanır.
+        """
+        if not self._ready or not self._dream_collection:
+            return False
+
+        text = text.strip()
+        if len(text) <= 15:
+            return False
+
+        doc_id = hashlib.md5(f"DREAM::{time.time()}::{text[:60]}".encode("utf-8")).hexdigest()
+        metadata = {
+            "source": "DREAM",
+            "reliability": "synthetic",
+            "confidence": confidence
+        }
+
+        try:
+            q_vec = self._vectorizer.encode([text])[0].tolist()
+            self._dream_collection.upsert(
+                ids=[doc_id],
+                embeddings=[q_vec],
+                documents=[text],
+                metadatas=[metadata]
+            )
+            return True
+        except Exception as e:
+            print(f"[Mergen RAG] Rüya kaydetme hatası: {e}")
+            return False
+
+    def query_dream(self, query: str, top_k: int = 5, min_relevance: float = 0.25) -> List[Dict]:
+        """
+        Sentetik rüya koleksiyonu mergen_ruya_bio üzerinde semantik arama yapar.
+        """
+        if not self._ready or not self._dream_collection or not query.strip():
+            return []
+
+        total = self._dream_collection.count()
+        if total == 0:
+            return []
+
+        try:
+            q_vec      = self._vectorizer.encode([query.strip()])[0]  # (dim,)
+            q_emb_list = [q_vec.tolist()]
+
+            n_candidates = min(top_k * 3, total)
+
+            results = self._dream_collection.query(
+                query_embeddings=q_emb_list,
+                n_results=n_candidates,
+                include=["documents", "distances", "metadatas", "embeddings"]
+            )
+
+            docs      = results["documents"][0]
+            distances = results["distances"][0]
+            metas     = results["metadatas"][0]
+            raw_embeddings = results.get("embeddings")
+            embeddings = raw_embeddings[0] if raw_embeddings is not None else None
+
+            if not docs:
+                return []
+
+            # Kosinüs mesafesi → benzerlik skoru
+            cos_scores = np.array([max(0.0, 1.0 - d) for d in distances], dtype=np.float32)
+
+            # HTM yeniden sıralama
+            if self._htm is not None and embeddings is not None and len(embeddings) == len(docs):
+                cand_vecs = np.array(embeddings, dtype=np.float32)
+                ranked_idx = self._htm.rerank(
+                    query_vec=q_vec,
+                    candidate_vecs=cand_vecs,
+                    cosine_scores=cos_scores,
+                    top_k=top_k,
+                )
+            else:
+                ranked_idx = np.argsort(cos_scores)[::-1][:top_k].tolist()
+
+            hits = []
+            for idx in ranked_idx:
+                relevance = float(cos_scores[idx])
+                if relevance < min_relevance:
+                    continue
+                hits.append({
+                    "text":      docs[idx],
+                    "relevance": round(relevance, 4),
+                    "source":    metas[idx].get("source", "DREAM"),
+                    "reliability": metas[idx].get("reliability", "synthetic"),
+                    "confidence": float(metas[idx].get("confidence", 0.2)),
+                })
+
+            return hits
+
+        except Exception as e:
+            print(f"[Mergen RAG] Rüya arama hatası: {e}")
+            return []

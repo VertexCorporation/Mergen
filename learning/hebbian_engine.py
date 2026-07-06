@@ -1,14 +1,14 @@
 """
 ╔══════════════════════════════════════════════════════════════════════╗
-║              MERGEN — HYBRID HEBBIAN LEARNER v2.0                   ║
-║         Three-Factor Biologically-Grounded Learning Engine          ║
+║              MERGEN — HYBRID HEBBIAN LEARNER v2.0                    ║
+║         Three-Factor Biologically-Grounded Learning Engine           ║
 ║                                                                      ║
-║  "Zeka statik bir haritalama fonksiyonu değil,                      ║
-║   yaşayan ve ritmik bir süreçtir."                                  ║
+║  "Zeka statik bir haritalama fonksiyonu değil,                       ║
+║   yaşayan ve ritmik bir süreçtir."                                   ║
 ║                                                                      ║
-║  Author:  Vertex Corporation — Mergen Project                       ║
-║  License: Apache-2.0                                                ║
-║  Compat:  gradients.py | stdp.py | rl_agent.py                     ║
+║  Author:  Vertex Corporation — Mergen Project                        ║
+║  License: Apache-2.0                                                 ║
+║  Compat:  gradients.py | stdp.py | rl_agent.py                       ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
 15 BIOLOGICAL PRINCIPLES IMPLEMENTED:
@@ -36,6 +36,11 @@ from typing import Optional, Dict
 from .gradients import SurrogateSpike, SpikingActivation
 from .stdp import STDPMechanism
 from .rl_agent import DopamineModulator
+
+
+# Number of special tokens + punctuation at the start of vocabulary
+# 6 special (<bos>, <eos>, <pad>, <unk>, <sep>, <cls>) + 15 punctuation = 21
+NUM_MASKED_TOKENS = 21
 
 
 class HybridHebbianLearner(nn.Module):
@@ -67,6 +72,8 @@ class HybridHebbianLearner(nn.Module):
         dopamine_threshold: float = 0.01,
         # PRINCIPLE 11: Spike Threshold
         spike_threshold: float = 1.0,
+        # PRINCIPLE 16: Lateral Inhibition (k-WTA)
+        lateral_k: int = 10,
         # PRINCIPLE 13: EMA Decay
         ema_decay: float = 0.99,
         # PRINCIPLE 12: Device
@@ -89,6 +96,7 @@ class HybridHebbianLearner(nn.Module):
         self.target_firing_rate = target_firing_rate
         self.dopamine_threshold = dopamine_threshold
         self.ema_decay = ema_decay
+        self.lateral_k = lateral_k
 
         # Precomputed decay factors
         self._decay_pre = 1.0 - (dt / tau_pre)
@@ -119,11 +127,44 @@ class HybridHebbianLearner(nn.Module):
         self._last_sparsity = 0.0
 
     def forward(self, pre_spikes: torch.Tensor) -> torch.Tensor:
-        """PRINCIPLE 11+12: Surrogate gradient forward pass."""
+        """
+        PRINCIPLE 11+12+16: Surrogate gradient forward pass
+        with lateral inhibition.
+
+        Pipeline:
+          1. Compute membrane potentials via matmul
+          2. Suppress special tokens (structural guard)
+          3. Apply spike activation (Heaviside threshold)
+          4. Lateral Inhibition (k-WTA): only the top-K
+             strongest post-synaptic neurons survive.
+             All others are silenced, enforcing sparse coding.
+        """
         sq = pre_spikes.dim() == 1
-        if sq: pre_spikes = pre_spikes.unsqueeze(0)
+        if sq:
+            pre_spikes = pre_spikes.unsqueeze(0)
+
         membrane = torch.matmul(pre_spikes, self.weights)
+
+        # Structural guard: special tokens must never fire
+        if membrane.shape[-1] > NUM_MASKED_TOKENS:
+            membrane[..., :NUM_MASKED_TOKENS] = -1e9
+
+        # Spike activation (Heaviside with surrogate gradient)
         out = self.spike_fn(membrane)
+
+        # ── LATERAL INHIBITION (k-Winners-Take-All) ──
+        # After spiking, only the K neurons with the highest
+        # membrane potential are allowed to remain active.
+        # This mimics inhibitory interneurons in biological cortex.
+        n_active = (out > 0).sum(dim=-1)
+        if (n_active > self.lateral_k).any():
+            # Use membrane potential as competition criterion
+            kth_val, _ = torch.kthvalue(
+                membrane, membrane.shape[-1] - self.lateral_k, dim=-1
+            )
+            inhibition_mask = (membrane >= kth_val.unsqueeze(-1)).float()
+            out = out * inhibition_mask
+
         return out.squeeze(0) if sq else out
 
     @torch.no_grad()
@@ -198,6 +239,38 @@ class HybridHebbianLearner(nn.Module):
         self.update_traces(pre_spikes, post_spikes)
         self.apply_dopamine(reward, new_value_estimate)
         return self.get_telemetry()
+
+    @torch.no_grad()
+    def spreading_activation(self, initial_activation: torch.Tensor, steps: int = 3, alpha: float = 0.85) -> torch.Tensor:
+        """
+        PRINCIPLE 15: Cognitive Emergence via Spreading Activation.
+        Performs search-free deductive reasoning by propagating neural activity 
+        through the dynamically learned conceptual graph (W^T @ W).
+        """
+        W = self.weights.data
+
+        # L2 Normalize the columns (concepts) to get cosine similarities
+        norms = torch.norm(W, p=2, dim=0, keepdim=True).clamp_min(1e-8)
+        W_norm = W / norms
+
+        # Concept correlation matrix (n_post, n_post)
+        T = torch.matmul(W_norm.t(), W_norm)
+
+        # Ensure non-negative and zero out self-loops
+        T = torch.relu(T)
+        T.fill_diagonal_(0.0)
+
+        # Row-normalize to create a stochastic transition matrix
+        row_sums = T.sum(dim=1, keepdim=True).clamp_min(1e-8)
+        T_trans = T / row_sums
+
+        x = initial_activation.clone()
+        x0 = initial_activation.clone()
+
+        for _ in range(steps):
+            x = alpha * torch.matmul(T_trans.t(), x) + (1 - alpha) * x0
+
+        return x
 
     def get_telemetry(self) -> Dict[str, float]:
         W = self.weights.data

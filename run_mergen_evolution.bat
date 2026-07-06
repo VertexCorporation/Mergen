@@ -1,7 +1,8 @@
 @echo off
-echo ============================================
+echo =========================================================
 echo  MERGEN V2 - OTOMATIK GELISIM SISTEMI
-echo ============================================
+echo  (GUVENLIK ENGELI: auto_evolution.py pasiflestirilmistir!)
+echo =========================================================
 echo.
 
 REM Python kontrolü

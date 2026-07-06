@@ -63,6 +63,8 @@ from datetime import datetime
 from typing import Optional, Dict, List, Callable, Any
 from collections import deque
 
+from learning.hebbian_engine import NUM_MASKED_TOKENS
+
 
 class LimbicExecutiveLayer:
     """
@@ -75,7 +77,7 @@ class LimbicExecutiveLayer:
         limbic = LimbicExecutiveLayer(
             mergen_engine=hebbian_engine,
             broca=broca_area,
-            mx_path='./mergen_memory.mx',
+            mx_path='./mergen_weights.mx',
             user_id='burak',
         )
 
@@ -102,7 +104,7 @@ class LimbicExecutiveLayer:
         mergen_engine: Any,           # HybridHebbianLearner
         broca: Any,                   # BrocaArea
         wernicke: Optional[Any] = None,
-        mx_path: str = "./mergen_memory.mx",
+        mx_path: str = "./mergen_weights.mx",
         user_id: str = "default",
         idle_threshold: float = 15.0,
         dmn_interval: float = 4.0,
@@ -170,7 +172,8 @@ class LimbicExecutiveLayer:
             return bytes(
                 b ^ key[i % len(key)] for i, b in enumerate(decoded)
             )
-        except Exception:
+        except Exception as e:
+            print(f"[Limbic] Decrypt error: {e}")
             return b""
 
     # ════════════════════════════════════════════════════════════════
@@ -259,7 +262,7 @@ class LimbicExecutiveLayer:
         Returns: True if a valid .mx was loaded
         """
         if not self.mx_path.exists():
-            print(f"[Limbic] No .mx file at {self.mx_path} — fresh awakening.")
+            print(f"[Limbic] No .mx file at {self.mx_path} - fresh awakening.")
             return False
 
         try:
@@ -294,6 +297,10 @@ class LimbicExecutiveLayer:
                     t = torch.tensor(eng['trace_post'])
                     if t.shape == self.engine.trace_post.shape:
                         self.engine.trace_post = t.to(self.engine.device)
+                if 'firing_rate_ema' in eng:
+                    r = torch.tensor(eng['firing_rate_ema'])
+                    if r.shape == self.engine.firing_rate_ema.shape:
+                        self.engine.firing_rate_ema = r.to(self.engine.device)
                 self.engine._step_count = eng.get('step_count', 0)
                 self.engine._da_event_count = eng.get('da_event_count', 0)
 
@@ -325,7 +332,7 @@ class LimbicExecutiveLayer:
                 self.dmn_cycles = limbic.get('dmn_cycles', 0)
 
             saved_at = state.get('timestamp', 'unknown')
-            print(f"[Limbic] ✓ Awakened from .mx (last saved: {saved_at})")
+            print(f"[Limbic] Awakened from .mx (last saved: {saved_at})")
             print(f"          Memory: {len(self.episodic_memory)} episodes, "
                   f"{len(self.internal_thoughts)} thoughts")
             print(f"          Vocabulary: "
@@ -402,8 +409,8 @@ class LimbicExecutiveLayer:
                             spontaneous_spikes = (
                                 spontaneous_spikes > 0.2
                             ).float()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"[Limbic-DMN] Episodic replay skipped: {e}")
 
             # Run through engine — internal "thought"
             try:
@@ -428,7 +435,7 @@ class LimbicExecutiveLayer:
                     'intensity': float(post.max().item()) if post.numel() > 0 else 0.0,
                 })
             except Exception as e:
-                pass  # Silent failure in background thread
+                print(f"[Limbic-DMN] Spontaneous fire error: {e}")
 
     # ════════════════════════════════════════════════════════════════
     #  PILLAR 2 — METACOGNITIVE EXECUTIVE FUNCTION
@@ -544,8 +551,8 @@ class LimbicExecutiveLayer:
             # Strong negative dopamine to weaken the wrong pattern
             try:
                 self.engine.apply_dopamine(reward=-0.8)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Limbic] Correction dopamine failed: {e}")
 
     # ════════════════════════════════════════════════════════════════
     #  PUBLIC API — The autonomous response loop
@@ -575,34 +582,87 @@ class LimbicExecutiveLayer:
         if self.wernicke is not None:
             try:
                 spike_train = self.wernicke.perceive(user_input)
-            except Exception:
+            except Exception as e:
+                print(f"[Limbic] Wernicke perception failed: {e}")
                 spike_train = None
         else:
             spike_train = None
 
-        # ── Layer 2: Think (run Hebbian engine over spike train) ──
+        # ── Layer 2: Think (Dual-Pathway Architecture) ──
+        # PATH A — Learning: per-timestep forward + STDP traces
+        #   Lateral inhibition enforces sparse learning signals.
+        # PATH B — Cognition: temporally integrated membrane potential
+        #   k-WTA on accumulated signal produces clean concept activation.
         neural_intent = torch.zeros(self.engine.n_post)
         spike_pattern_for_memory = None
 
         if spike_train is not None and spike_train.dim() == 2:
             spike_pattern_for_memory = spike_train.sum(dim=0).cpu().tolist()
+
+            # PATH A: Learning (per-timestep STDP with lateral inhibition)
             with self._lock:
                 for t in range(spike_train.shape[0]):
                     pre = spike_train[t]
                     post = self.engine.forward(pre)
                     self.engine.update_traces(pre, post)
-                    neural_intent += post.detach().cpu()
+
+            # PATH B: Cognition (integrated signal → k-WTA)
+            # Sum all pre-synaptic spikes across time to average out
+            # Poisson noise, then compute membrane potential once.
+            total_pre = spike_train.sum(dim=0)
+            raw_membrane = torch.matmul(total_pre, self.engine.weights.data)
+
+            # Structural guard: special tokens must never activate
+            raw_membrane[:NUM_MASKED_TOKENS] = 0.0
+
+            # k-Winners-Take-All on integrated signal
+            k = self.engine.lateral_k
+            if raw_membrane.shape[0] > k:
+                topk_vals, topk_idx = torch.topk(raw_membrane, k)
+                neural_intent = torch.zeros_like(raw_membrane)
+                neural_intent[topk_idx] = raw_membrane[topk_idx]
+            else:
+                neural_intent = raw_membrane
+
         else:
             # No Wernicke — generate random intent for testing
             neural_intent = torch.rand(self.engine.n_post) * 0.5
+
+        # ── Layer 2.5: Cognitive Emergence (Spreading Activation) ──
+        if hasattr(self.engine, 'spreading_activation') and neural_intent.sum() > 0:
+            try:
+                neural_intent = self.engine.spreading_activation(
+                    neural_intent, steps=3, alpha=0.85
+                )
+                # Re-apply special token guard after spreading
+                neural_intent[:NUM_MASKED_TOKENS] = 0.0
+            except Exception as e:
+                print(f"[Limbic] Spreading activation failed: {e}")
+
+        # --- PROOF OF COGNITION: Identify top activated concepts ---
+        if neural_intent.numel() > 0:
+            try:
+                top_k_display = min(3, self.engine.n_post)
+                top_indices = torch.topk(neural_intent, top_k_display).indices.tolist()
+                top_concepts = []
+                for idx in top_indices:
+                    if neural_intent[idx] > 0:
+                        if hasattr(self, 'broca') and hasattr(self.broca, 'concept_vocabulary'):
+                            if idx < len(self.broca.concept_vocabulary):
+                                top_concepts.append(self.broca.concept_vocabulary[idx])
+                self.last_thought = " -> ".join(top_concepts)
+            except Exception as e:
+                print(f"[Limbic] Thought extraction failed: {e}")
 
         # ── Layer 3 + Layer 4: Express with metacognitive validation ──
         final_response = ""
         for attempt in range(max_attempts):
             try:
+                activation_strength = torch.max(neural_intent).item() if isinstance(neural_intent, torch.Tensor) else 1.0
                 response = self.broca.express(
                     neural_intent=neural_intent,
                     original_query=user_input,
+                    activation_strength=activation_strength,
                 )
             except Exception as e:
                 response = f"[Express error: {e}]"
@@ -615,8 +675,8 @@ class LimbicExecutiveLayer:
             # autonomous arousal: amplify neural intent randomly
             try:
                 self.engine.apply_dopamine(reward=-0.3)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Limbic] Negative dopamine failed: {e}")
             # Add noise to break out of stuck attractor
             neural_intent = neural_intent + torch.rand_like(neural_intent) * 0.3
         else:
@@ -665,7 +725,7 @@ class LimbicExecutiveLayer:
 
         success = self.save_state()
         if success:
-            print(f"[Limbic] ✓ State saved to {self.mx_path}")
+            print(f"[Limbic] State saved to {self.mx_path}")
             print(f"          Lifetime stats:")
             print(f"          - Responses: {self.total_responses}")
             print(f"          - DMN cycles: {self.dmn_cycles}")
@@ -674,7 +734,7 @@ class LimbicExecutiveLayer:
             print(f"          - Cumulative reward: {self.cumulative_reward:.2f}")
             print(f"          - Efficiency: {self.efficiency_score:.4f}")
         else:
-            print(f"[Limbic] ✗ Save failed!")
+            print(f"[Limbic] Save failed!")
 
     # ════════════════════════════════════════════════════════════════
     #  INSPECTION

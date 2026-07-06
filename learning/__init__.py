@@ -11,3 +11,5 @@ Combines three distinct learning paradigms:
 from .gradients import SurrogateSpike
 from .stdp import STDPMechanism
 from .rl_agent import DopamineModulator
+from .hebbian_engine import HybridHebbianLearner
+from .cortical_column import CorticalLayer, CorticalColumn

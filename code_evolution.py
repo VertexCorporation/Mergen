@@ -12,6 +12,9 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 
 
+EVOLUTION_ENABLED = False
+
+
 class CodeEvolutionEngine:
     """
     Mergen'in kodunu analiz eder, diğer AI modellerinden
@@ -99,6 +102,9 @@ class CodeEvolutionEngine:
     
     def write_file_content(self, file_path: Path, content: str) -> bool:
         """Dosya içeriğini yazar."""
+        if not EVOLUTION_ENABLED:
+            print(f"[Evolution] [X] GUVENLIK ENGELI: EVOLUTION_ENABLED = False oldugundan dosya yazma engellendi: {file_path.name}")
+            return False
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)

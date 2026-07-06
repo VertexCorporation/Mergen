@@ -1,0 +1,260 @@
+Mergen biyolojiden ilham alan dijital bir beyindir.
+Mergen öğrenirken geri yayılım kullanmaz.
+Mergen harici büyük dil modeli kullanmadan çalışmayı hedefler.
+Mergen Hebbian öğrenme ilkesiyle kavramlar arasında bağ kurar.
+Mergen STDP ilkesiyle zamansal yakınlığı sinaptik güçlenmeye dönüştürür.
+Mergen deneyimlerden kalıcı hafıza izleri oluşturur.
+Mergen bilgiyi tek cümlelik deneyimler halinde daha güvenli öğrenir.
+Mergen çelişkisiz bilgiyi tekrar gördüğünde kavram bağlarını güçlendirir.
+Mergen rüya konsolidasyonu ile sinaptik izleri düzenler.
+Mergen Dream sürecinde NREM ve REM benzeri döngüler kullanır.
+Mergen Limbic katmanı ile biyolojik deneyim akışı üretir.
+Mergen Wernicke alanı ile metni anlamsal temsile çevirir.
+Mergen Broca alanı ile içsel aktivasyonu dile dönüştürür.
+Mergen RAG motoru ile öğrenilen metinleri geri çağırabilir.
+Mergen knowledge base içinde öğrenilen fact kayıtlarını saklar.
+Mergen bir kavramı farklı bağlamlarda görürse daha esnek hatırlayabilir.
+Mergen eğitiminde kısa ve açık cümleler tercih edilir.
+Mergen eğitiminde her satır tek ana fikir taşımalıdır.
+Mergen eğitiminde kavramlar kademeli olarak tanıtılmalıdır.
+Mergen eğitiminde önce temel kavramlar sonra ilişkiler verilmelidir.
+Nöron sinir sisteminde bilgi taşıyan temel hücredir.
+Sinaps iki nöron arasında sinyal geçişi sağlayan bağlantıdır.
+Akson nöronun sinyali uzak hücrelere taşıyan uzantısıdır.
+Dendrit nöronun diğer hücrelerden sinyal alan uzantısıdır.
+Aksiyon potansiyeli nöronda kısa süreli elektriksel aktivitedir.
+Plastisite sinir bağlantılarının deneyimle değişebilme özelliğidir.
+Hebbian ilke birlikte aktif olan nöronların bağını güçlendirir.
+STDP iki nöronun ateşleme zamanına göre sinaptik ağırlığı değiştirir.
+Ödül sinyali öğrenme sürecinde seçilen davranışı güçlendirebilir.
+Dikkat sistemi önemli uyaranlara işlem önceliği verir.
+Hafıza geçmiş deneyimlerin izlerini saklayan süreçtir.
+Kısa süreli hafıza geçici bilgiyi sınırlı süre tutar.
+Uzun süreli hafıza kalıcı bilgi izlerini daha uzun süre saklar.
+Konsolidasyon geçici hafıza izlerini daha kararlı hale getirir.
+Uyku biyolojik sistemlerde hafıza düzenleme ile ilişkilidir.
+Duygu karar verme sürecinde öncelik ve değer sinyali sağlayabilir.
+Limbik sistem duygu ve motivasyon süreçleriyle ilişkilidir.
+Prefrontal korteks planlama ve kontrol süreçleriyle ilişkilidir.
+Hipokampus deneyimlerin bağlamsal hafızasında önemli rol oynar.
+Amigdala tehdit ve duygusal önem algısıyla ilişkilidir.
+Kütle madde miktarını ifade eden fiziksel büyüklüktür.
+Enerji iş yapabilme kapasitesidir.
+Kuvvet bir cismin hareketini değiştirebilen etkidir.
+Hız konumun zamana göre değişim oranıdır.
+İvme hızın zamana göre değişim oranıdır.
+Momentum kütle ve hızın çarpımıyla ilişkilidir.
+Sürtünme hareketi zorlaştıran temas kuvvetidir.
+Basınç birim yüzeye düşen kuvvet olarak tanımlanır.
+Isı sıcaklık farkı nedeniyle aktarılan enerjidir.
+Sıcaklık parçacıkların ortalama kinetik enerjisiyle ilişkilidir.
+Işık elektromanyetik dalga olarak yayılabilir.
+Foton ışığın kuantum parçacığıdır.
+Dalga enerji taşıyan yayılım biçimidir.
+Frekans bir dalganın birim zamanda yaptığı salınım sayısıdır.
+Dalga boyu ardışık iki dalga tepesi arasındaki mesafedir.
+Kuantum parçacık dalga fonksiyonu ile temsil edilir.
+Dalga fonksiyonu parçacığın olasılık dağılımını tanımlar.
+Ölçüm kuantum durumda belirli bir sonuç seçilmesine neden olabilir.
+Belirsizlik ilkesi konum ve momentumun aynı anda sınırsız kesinlikle bilinemeyeceğini söyler.
+Süperpozisyon kuantum sistemin birden fazla olası durumda temsil edilmesidir.
+Dolanıklık iki kuantum sistem arasında güçlü korelasyon oluşmasıdır.
+Kütleçekim kütleli cisimler arasında çekim etkisi oluşturur.
+Kütleçekim uzay ve zamanı büker.
+Uzay ve zaman birlikte uzay-zaman yapısını oluşturur.
+Kara delik çok yoğun kütleçekim alanına sahip gök cismidir.
+Olay ufku kara delikten kaçışın mümkün olmadığı sınırdır.
+Yıldız büyük gaz kütlesinin nükleer füzyonla ışık üretmesidir.
+Gezegen yıldız çevresinde dönen büyük gök cismidir.
+Galaksi yıldızlar gaz toz ve karanlık maddeden oluşan büyük sistemdir.
+Evren uzay zaman madde ve enerjinin bütünüdür.
+Entropi bir sistemin düzensizlik veya olası durum sayısıyla ilişkilidir.
+Sayı miktar veya sıra belirtmek için kullanılan matematiksel nesnedir.
+Doğal sayılar sayma işlemlerinde kullanılan pozitif tam sayılardır.
+Tam sayılar pozitif sayıları negatif sayıları ve sıfırı içerir.
+Rasyonel sayı iki tam sayının oranı olarak yazılabilir.
+Gerçek sayılar sayı doğrusundaki sürekli değerleri temsil eder.
+Değişken değeri değişebilen matematiksel semboldür.
+Fonksiyon her girdiye belirli bir çıktı atayan ilişkidir.
+Doğrusal fonksiyon sabit değişim oranına sahip fonksiyondur.
+Türev bir fonksiyonun anlık değişim oranını ölçer.
+İntegral birikimli toplam veya alan hesabıyla ilişkilidir.
+Vektör büyüklük ve yön taşıyan matematiksel nesnedir.
+Matris sayıları satır ve sütun düzeninde saklayan yapıdır.
+Olasılık bir olayın gerçekleşme ihtimalini ölçer.
+İstatistik veriden örüntü ve sonuç çıkarmaya çalışır.
+Ortalama veri değerlerinin merkezi eğilimini gösterir.
+Varyans verinin ortalamadan ne kadar yayıldığını ölçer.
+Graf düğümler ve kenarlardan oluşan ilişki yapısıdır.
+Düğüm graf içinde bir varlığı temsil eder.
+Kenar graf içinde iki düğüm arasındaki ilişkiyi temsil eder.
+Mantık doğru ve yanlış önermeler arasındaki ilişkileri inceler.
+Çıkarım verilen bilgilerden yeni sonuç üretme sürecidir.
+Algoritma bir problemi çözmek için tanımlanmış adımlar dizisidir.
+Veri işlenebilir bilgi parçalarıdır.
+Bilgi verinin anlamlı ve bağlamlı hale gelmiş biçimidir.
+Bellek bilgiyi saklayan sistem bileşenidir.
+Dosya kalıcı depolamada saklanan veri birimidir.
+Veritabanı düzenli veri saklama ve sorgulama sistemidir.
+İndeks arama işlemini hızlandıran yardımcı veri yapısıdır.
+Liste sıralı elemanlardan oluşan veri yapısıdır.
+Sözlük anahtar ve değer çiftlerini saklayan veri yapısıdır.
+Küme benzersiz elemanlardan oluşan veri yapısıdır.
+Yığın son giren elemanın ilk çıktığı veri yapısıdır.
+Kuyruk ilk giren elemanın ilk çıktığı veri yapısıdır.
+Ağaç hiyerarşik düğümlerden oluşan veri yapısıdır.
+Arama algoritması hedef bilgiyi veri içinde bulmaya çalışır.
+Sıralama algoritması elemanları belirli düzene koyar.
+Karma fonksiyon veriyi sabit uzunlukta özet değere dönüştürür.
+Programlama dili bilgisayara talimat yazmak için kullanılır.
+Python okunabilir söz dizimine sahip genel amaçlı programlama dilidir.
+Modül yeniden kullanılabilir kod birimidir.
+Fonksiyon belirli bir işi yapan adlandırılmış kod bloğudur.
+Sınıf veri ve davranışı birlikte tanımlayan programlama yapısıdır.
+Nesne bir sınıfın çalışan örneğidir.
+Hata yakalama beklenmeyen durumların kontrollü yönetilmesini sağlar.
+Log kaydı sistem davranışını izlemek için olayları saklar.
+Sessiz hata yutma güvenilirliği azaltır.
+Test yazılım davranışının beklenen sonuçlarla uyumunu kontrol eder.
+Smoke test sistemin temel akışının çalıştığını doğrular.
+Regresyon testi eski davranışların bozulmadığını kontrol eder.
+Dil anlam taşıyan semboller ve kurallar sistemidir.
+Kelime dil içinde anlam taşıyan temel birimdir.
+Cümle kelimelerin anlamlı bir yargı oluşturacak biçimde düzenlenmesidir.
+Kavram ortak özellikleri olan varlık veya düşünce sınıfıdır.
+Anlam bir ifadenin taşıdığı zihinsel içeriktir.
+Bağlam bir ifadenin yorumunu etkileyen çevresel bilgidir.
+Sözdizimi kelimelerin cümle içinde düzenlenme kurallarıdır.
+Anlambilim ifadelerin anlam ilişkilerini inceler.
+Eş anlamlı kelimeler benzer anlam taşıyan kelimelerdir.
+Zıt anlamlı kelimeler karşıt anlam taşıyan kelimelerdir.
+Tanım bir kavramın temel özelliklerini açıklar.
+Örnek soyut kavramı somut bir durumla gösterir.
+Soru bilgi eksikliğini gidermek için yöneltilen ifadedir.
+Cevap bir soruya verilen bilgilendirici karşılıktır.
+Sebep bir olayın ortaya çıkmasına katkı veren etkendir.
+Sonuç bir olay veya sürecin ortaya çıkardığı durumdur.
+Karşılaştırma iki varlığın benzer ve farklı yönlerini inceler.
+Sınıflandırma varlıkları ortak özelliklerine göre gruplandırır.
+Parça bütün ilişkisi bir öğenin daha büyük bir yapı içindeki yerini açıklar.
+Zaman sırası olayların önce ve sonra ilişkisini belirtir.
+Koşul bir olayın gerçekleşmesi için gereken durumu ifade eder.
+Kanıt bir iddiayı destekleyen gözlem veya bilgidir.
+Hipotez test edilebilir açıklama önerisidir.
+Model gerçek bir sistemi basitleştirerek temsil eder.
+Simülasyon bir sistemin davranışını taklit eden süreçtir.
+Gözlem bir durumu dikkatle izleyip bilgi toplama işlemidir.
+Deney kontrollü koşullarda yapılan gözlem ve test sürecidir.
+Ölçüm bir özelliğe sayısal değer atama işlemidir.
+Doğruluk bir bilginin gerçek durumla uyumunu ifade eder.
+Güvenilirlik sistemin tutarlı şekilde çalışabilme özelliğidir.
+Sürdürülebilirlik sistemin zaman içinde bakımının yapılabilmesidir.
+Performans sistemin kaynakları verimli kullanma derecesidir.
+Mimari bütünlük sistem parçalarının tutarlı bir tasarım içinde birleşmesidir.
+Güneş Dünya için temel ışık ve ısı kaynağıdır.
+Fotosentez bitkilerin ışık enerjisiyle besin üretme sürecidir.
+Klorofil bitkilerde ışığı soğuran pigmenttir.
+Ekosistem canlılar ve çevreleri arasındaki etkileşim ağıdır.
+Besin zinciri enerjinin canlılar arasında aktarılma yoludur.
+Hücre canlıların temel yapısal ve işlevsel birimidir.
+DNA kalıtsal bilgiyi taşıyan moleküldür.
+Gen DNA üzerinde belirli bir özelliğe katkı veren bölgedir.
+Protein hücrede yapı ve işlev sağlayan büyük moleküldür.
+Enzim kimyasal tepkimeleri hızlandıran biyolojik katalizördür.
+Evrim canlı popülasyonlarının nesiller boyunca değişmesidir.
+Doğal seçilim çevreye daha uygun özelliklerin yayılmasını sağlar.
+Adaptasyon canlının çevresine uyum sağlayan özelliğidir.
+Homeostaz canlının iç dengesini koruma sürecidir.
+Bağışıklık sistemi vücudu zararlı etkenlere karşı savunur.
+Ekonomi kaynakların üretim dağıtım ve tüketimini inceler.
+Kaynak sınırlı olan ve ihtiyaçları karşılamak için kullanılan şeydir.
+Maliyet bir seçim için vazgeçilen değerle ilişkilidir.
+Fayda bir seçimin sağladığı yarar olarak düşünülebilir.
+Risk belirsizlik altında istenmeyen sonuç olasılığıdır.
+Karar verme seçenekler arasından amaçlara uygun olanı seçme sürecidir.
+Plan hedefe ulaşmak için düzenlenmiş adımlar bütünüdür.
+Strateji uzun vadeli amaçlara ulaşmak için genel yaklaşımdır.
+Geri bildirim sistemin çıktısının sonraki davranışı etkilemesidir.
+Döngü tekrarlanan işlem veya olay dizisidir.
+Neden sonuç ilişkisi bir olayın başka bir olaya yol açmasını açıklar.
+Korelasyon iki değişkenin birlikte değişme eğilimidir.
+Korelasyon tek başına nedensellik kanıtı değildir.
+Nedensellik bir değişkenin başka bir değişkeni doğrudan etkilemesidir.
+Belirsizlik bilginin eksik veya kesin olmaması durumudur.
+Tahmin mevcut bilgilerle gelecekteki durumu öngörme işlemidir.
+Önyargı değerlendirmeyi sistematik biçimde etkileyen eğilimdir.
+Yanılgı hatalı akıl yürütme biçimidir.
+Tutarlılık ifadelerin birbirleriyle çelişmemesidir.
+Çelişki iki ifadenin aynı anda doğru olamaması durumudur.
+Soyutlama gereksiz ayrıntıları azaltarak temel yapıyı temsil eder.
+Genelleme örneklerden daha geniş bir kural çıkarmadır.
+Özelleştirme genel bir kavramı daha dar bir duruma uygulamadır.
+Analiz bir bütünü parçalarına ayırarak inceleme sürecidir.
+Sentez parçaları birleştirerek yeni bütün oluşturma sürecidir.
+Problem çözme hedef ve engel arasındaki farkı azaltma sürecidir.
+Yaratıcılık yeni ve işe yarar bağlantılar kurabilme becerisidir.
+Öğrenme deneyim sonucunda davranış veya temsil değişimidir.
+Anlama yeni bilgiyi mevcut kavramlarla ilişkilendirme sürecidir.
+Hatırlama daha önce öğrenilmiş bilgiyi geri çağırma sürecidir.
+Unutma bilginin erişilebilirliğinin azalmasıdır.
+Tekrar hafıza izlerinin güçlenmesine katkı sağlar.
+Aralıklı tekrar öğrenilen bilginin daha uzun süre korunmasına yardımcı olur.
+Karışık tekrar farklı konuları birlikte çalışarak ayırt etmeyi güçlendirir.
+Aktif geri çağırma bilgiyi yeniden üretmeye çalışarak öğrenmeyi güçlendirir.
+Kavram haritası kavramlar arasındaki ilişkileri görsel veya yapısal olarak gösterir.
+Geri çağırma kalitesi öğrenmenin ölçülebilir göstergelerinden biridir.
+Eğitim verisi yanlışsa sistem yanlış bağlantılar öğrenebilir.
+Eğitim verisi çelişkiliyse kavram temsilleri kararsızlaşabilir.
+Eğitim verisi dengeliyse farklı kavram alanları daha uyumlu öğrenilir.
+Eğitim verisi tekrarlıysa önemli ilişkiler daha güçlü temsil edilir.
+Eğitim verisi çok gürültülüyse öğrenme kalitesi düşebilir.
+Mergen küçük eğitim partileriyle daha kontrollü izlenebilir.
+Mergen her eğitim partisinden sonra değerlendirilmelidir.
+Mergen her büyük eğitimden sonra biyolojik katman doğrulamasından geçmelidir.
+Mergen Dream konsolidasyonundan sonra hafıza bozulması açısından kontrol edilmelidir.
+Mergen için iyi eğitim önce çekirdek kavramları öğretir.
+Mergen için iyi eğitim sonra kavramlar arası ilişkileri öğretir.
+Mergen için iyi eğitim en sonunda soru cevap ve muhakeme kalıplarını artırır.
+Kuantum fiziği mikroskobik parçacıkların davranışını inceler.
+Klasik fizik günlük ölçeklerdeki hareket ve kuvvetleri açıklar.
+Görelilik yüksek hız ve güçlü kütleçekim koşullarını açıklar.
+Termodinamik ısı enerji ve entropi ilişkilerini inceler.
+Elektromanyetizma elektrik ve manyetik alanların davranışını inceler.
+Mekanik cisimlerin hareketini ve kuvvetlerle ilişkisini inceler.
+Kimya maddenin yapısını dönüşümünü ve etkileşimlerini inceler.
+Atom proton nötron ve elektronlardan oluşan temel madde birimidir.
+Molekül atomların kimyasal bağlarla birleşmesidir.
+Kimyasal bağ atomları molekül içinde bir arada tutan etkileşimdir.
+Asit proton verebilen veya elektron çifti alabilen madde olarak tanımlanabilir.
+Baz proton alabilen veya elektron çifti verebilen madde olarak tanımlanabilir.
+pH bir çözeltinin asitlik veya bazlık derecesini gösterir.
+Su iki hidrojen ve bir oksijen atomundan oluşan moleküldür.
+Karbon canlı kimyasında çok önemli bağlar kurabilen elementtir.
+Oksijen solunum ve yanma süreçlerinde önemli rol oynar.
+Makine öğrenmesi veriden örüntü çıkaran algoritmaları inceler.
+Yapay sinir ağı nöron benzeri birimlerden oluşan hesaplama modelidir.
+Geri yayılım yapay sinir ağlarında hata gradyanıyla ağırlık günceller.
+Hebbian öğrenme gradyan hesaplamadan yerel aktivite ilişkilerini güçlendirebilir.
+Denetimli öğrenme etiketli örneklerden öğrenme yaklaşımıdır.
+Denetimsiz öğrenme etiketsiz veride örüntü bulmaya çalışır.
+Pekiştirmeli öğrenme ödül ve ceza sinyalleriyle davranış öğrenir.
+Özellik çıkarımı ham veriden anlamlı temsil üretme sürecidir.
+Temsil öğrenme veriyi yararlı içsel yapılara dönüştürmeyi amaçlar.
+Benzerlik ölçümü iki temsilin ne kadar yakın olduğunu hesaplar.
+Kosinüs benzerliği iki vektör arasındaki yön yakınlığını ölçer.
+Kümeleme benzer örnekleri aynı gruplara ayırır.
+Sınıflandırma girdiyi önceden tanımlı sınıflardan birine atar.
+Regresyon sürekli değer tahmin etmeye çalışır.
+Aşırı öğrenme modelin eğitim verisine fazla uyup genellemede zayıflamasıdır.
+Genelleme öğrenilen bilginin yeni örneklere uygulanabilmesidir.
+RAG dış bilgi kaynağından ilgili içerik getirerek yanıtı destekler.
+Retrieval öğrenilen veya saklanan bilgi içinden ilgili parçayı bulma işlemidir.
+HTM biyolojik korteksten ilham alan hiyerarşik zaman belleği yaklaşımıdır.
+Sparse temsil az sayıda aktif birimle bilgi kodlama yaklaşımıdır.
+Motor nöron çıktı veya eylem sinyali taşıyan nöron olarak düşünülebilir.
+Kavram aktivasyonu bir temsilin belirli bilgiyle ilişkili olarak ateşlenmesidir.
+Sinaptik budama zayıf veya gereksiz bağlantıların azaltılmasıdır.
+Gürültü bastırma önemli sinyali korurken rastgele etkileri azaltmayı amaçlar.
+Stabilite öğrenilen temsilin zaman içinde bozulmadan kalmasıdır.
+Plastisite yeni bilgiye uyum sağlama kapasitesidir.
+Stabilite ve plastisite öğrenen sistemlerde dengelenmesi gereken iki özelliktir.
