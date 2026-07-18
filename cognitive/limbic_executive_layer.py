@@ -901,9 +901,8 @@ class LimbicExecutiveLayer:
                 # Serotonin eşiği: spike tabanlı güven metriğiyle kalibre edilmiş
                 serotonin_level = self.neuro.get_levels().get('5-HT', self.neuro.BASE_5HT)
                 inhibition_threshold = serotonin_level * 0.5  # Eski: 1.5 (çok yüksek)
-                
                 if activation_strength < inhibition_threshold:
-                    print(f"\n[Limbic] \U0001f6d1 Global İnhibisyon tetiklendi! Güven skoru ({activation_strength:.3f}) < Serotonin Eşiği ({inhibition_threshold:.3f}). Uydurma engellendi.")
+                    print(f"\n[Limbic] [STOP] Global İnhibisyon tetiklendi! Güven skoru ({activation_strength:.3f}) < Serotonin Eşiği ({inhibition_threshold:.3f}). Uydurma engellendi.")
 
                     response = "Bu konuda net bir fikrim yok, uydurmak istemiyorum."
                     final_response = response
@@ -1018,6 +1017,35 @@ class LimbicExecutiveLayer:
             print(f"          - Efficiency: {self.efficiency_score:.4f}")
         else:
             print(f"[Limbic] Save failed!")
+
+    def write_dream_diary(self, active_concepts: List[str]):
+        """Write the active dream concepts to the dream diary file."""
+        diary_path = "./dream_diary.json"
+        data = {
+            "timestamp": datetime.now().isoformat(),
+            "concepts": active_concepts
+        }
+        try:
+            with open(diary_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            print(f"[Limbic] Dream diary written to {diary_path}")
+        except Exception as e:
+            print(f"[Limbic] Error writing dream diary: {e}")
+
+    def synthesize_dream_insights(self, active_concepts: List[str]):
+        """Synthesize creative insights from active dream concepts and write to ChromaDB."""
+        if self.rag is None or not active_concepts:
+            return
+        
+        # Combine concepts into a synthetic insight sentence
+        concepts_str = ", ".join(active_concepts)
+        insight_text = f"Mergen rüyasında şu kavramlar arasında bağlantı kurdu: {concepts_str}. Bu sentez yaratıcı bir ilişkidir."
+        
+        try:
+            self.rag.add_dream_fact(insight_text, confidence=0.2)
+            print(f"[Limbic] Synthesized dream insight written to RAG: {insight_text}")
+        except Exception as e:
+            print(f"[Limbic] Error writing dream insight to RAG: {e}")
 
     # ════════════════════════════════════════════════════════════════
     #  INSPECTION

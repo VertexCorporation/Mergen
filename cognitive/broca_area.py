@@ -53,6 +53,9 @@ class BrocaArea:
             concept_vocabulary = [f"word_{i}" for i in range(n_neurons)]
         self.concept_vocabulary = list(concept_vocabulary)
         self.vocab_size = len(self.concept_vocabulary)
+        # BUG-04 FIX: O(n) list.index() yerine O(1) ters indeks sozlugu.
+        # _neural_detect_intent() icindeki top3 dongusunde kullanilir.
+        self._concept_to_idx = {w: i for i, w in enumerate(self.concept_vocabulary)}
 
         if self.engine:
             self.motor_layer_size = self.engine.motor_layer_size
@@ -170,12 +173,12 @@ class BrocaArea:
             activation_strength=activation_strength,
         )
         response = self._sanitize(response)
-        self._last_response = response
-        return response
 
-        # ── BUILT-IN random decoder (last resort) ──
-        response = self._builtin_decode(neural_intent, max_words)
-        response = self._sanitize(response)
+        # BUG-01 FIX: Sablon basarisiz olursa (bos/"..." yanit) builtin decoder devreye girer.
+        if not response or response == "...":
+            response = self._builtin_decode(neural_intent, max_words)
+            response = self._sanitize(response)
+
         self._last_response = response
         return response
 
@@ -247,7 +250,8 @@ class BrocaArea:
             for sci_cat in science_cats:
                 if sci_cat in self.vocab.category_ranges:
                     start, end = self.vocab.category_ranges[sci_cat]
-                    idx = self.concept_vocabulary.index(c) if c in self.concept_vocabulary else -1
+                    # BUG-04 FIX: list.index() -> O(1) ters sozluk erisimi
+                    idx = self._concept_to_idx.get(c, -1)
                     if start <= idx < end:
                         return 'DISCUSSION'
 

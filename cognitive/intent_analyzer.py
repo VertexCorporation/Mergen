@@ -577,7 +577,8 @@ class IntentAnalyzer:
             })
             if len(self.memory['low_confidence_queue']) > 200:
                 self.memory['low_confidence_queue'] = self.memory['low_confidence_queue'][-200:]
-        if self.total_analyses % 10 == 0:
+        # SORUN-10 FIX: Esik 10 -> 50. Yuksek frekansta cok I/O uretiyordu.
+        if self.total_analyses % 50 == 0:
             self._save_memory()
 
     def record_feedback(self, analysis_timestamp: float,

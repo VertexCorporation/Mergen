@@ -128,8 +128,8 @@ class TurkishGrammar:
             if self._ends_with_vowel(verb):
                 verb = verb[:-1] # git-e-yor -> gidiyor, wait! just drop last vowel and let rule apply
             
-            # Simple consonant mutation for verbs
-            if verb in ['git', 'tat', 'güt', 'dit']: verb = verb[:-1] + 'd'
+            # Simple consonant mutation for verbs (t→d before vowel-initial suffix)
+            if verb in ['git', 'tat', 'güt', 'dit', 'et']: verb = verb[:-1] + 'd'
             
             last = self._last_vowel(verb)
             if last in 'aı': suffix = 'ıyor'
@@ -182,6 +182,9 @@ class TurkishGrammar:
             last = self._last_vowel(verb)
             verb += 'ma' if last in 'aıou' else 'me'
             
+        # SORUN-12: t→d mutation for future tense (e.g. git→gid, et→ed)
+        if verb in ['git', 'tat', 'güt', 'dit', 'et']: verb = verb[:-1] + 'd'
+
         if self._ends_with_vowel(verb):
             verb += 'y'
             

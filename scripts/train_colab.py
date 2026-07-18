@@ -144,10 +144,23 @@ def train_file(file_path: str, engine: CorticalColumn, wernicke: WernickeArea, v
         sentences = [line.strip() for line in f if line.strip()]
 
     print(f"[Eğitim] Cümle sayısı: {len(sentences):,}")
+    
+    # Sözlük kelimelerini semantik çıkarım için önceden encode et
+    vocab_words = [vocab.id_to_word(i) for i in range(vocab_size)]
+    with torch.no_grad():
+        vocab_embeddings = wernicke.encoder.encode(
+            vocab_words, 
+            convert_to_tensor=True, 
+            normalize_embeddings=True,
+            show_progress_bar=False
+        ).to(device)
+
     sentence_counter = 0
 
     for epoch in range(args.epochs_per_chunk):
-        print(f"  [Epoch] {epoch+1}/{args.epochs_per_chunk}")
+        print(f"\n{'='*60}")
+        print(f"  EPOCH {epoch+1}/{args.epochs_per_chunk} | Dosya: {os.path.basename(file_path)}")
+        print(f"{'='*60}")
         random.shuffle(sentences)
 
         total_rpe = 0.0
@@ -161,15 +174,47 @@ def train_file(file_path: str, engine: CorticalColumn, wernicke: WernickeArea, v
                 continue
 
             engine.reset_traces()
-            
+
+            word_details = []
+            skipped_words = []
+
             for word in words:
                 word_id = vocab.word_to_id.get(word, None)
+                inference_made = False
+                best_match_word = None
+                best_sim = 0.0
+
                 if word_id is None:
-                    continue
+                    # Semantik çıkarım (kendi kendine eşleştirme)
+                    with torch.no_grad():
+                        word_emb = wernicke.encoder.encode(
+                            [word],
+                            convert_to_tensor=True,
+                            normalize_embeddings=True,
+                            show_progress_bar=False
+                        ).to(device).squeeze(0)
+                        
+                        similarities = torch.matmul(vocab_embeddings, word_emb)
+                        best_idx = torch.argmax(similarities).item()
+                        best_sim = similarities[best_idx].item()
+                        
+                        if best_sim >= 0.50:
+                            word_id = best_idx
+                            best_match_word = vocab_words[best_idx]
+                            inference_made = True
+                        else:
+                            skipped_words.append((word, best_sim))
+                            continue
                     
+                # Ağırlık takibi için L5 ağırlıklarını kopyala
+                w_before = engine.L5.weights.data.clone()
+
                 pre_train = wernicke.perceive(word)
                 post = torch.zeros(vocab_size, device=device)
                 post[word_id] = 1.0
+
+                word_rpe = 0.0
+                steps_count = 0
 
                 for t in range(pre_train.shape[0]):
                     pre_t = pre_train[t]
@@ -183,26 +228,93 @@ def train_file(file_path: str, engine: CorticalColumn, wernicke: WernickeArea, v
                         reward=args.stdp_reward,
                         som_lr=args.som_lr
                     )
+                    word_rpe += telemetry.get('rpe', 0.0)
+                    steps_count += 1
+                    
                     total_rpe += telemetry.get('rpe', 0.0)
                     total_dw += telemetry.get('delta_w', 0.0)
                     processed_in_epoch += 1
 
+                if steps_count > 0:
+                    w_after = engine.L5.weights.data
+                    max_dw = (w_after - w_before).abs().max().item()
+                    max_ltp = (engine.L5.trace_pre.max() * engine.L5.A_ltp).item()
+                    max_ltd = (engine.L5.trace_post.max() * engine.L5.A_ltd).item()
+                    l23_rate = engine.L23.firing_rate_ema.mean().item() * 100.0
+                    avg_w_rpe = word_rpe / steps_count
+                    word_details.append({
+                        'word': word,
+                        'rpe': avg_w_rpe,
+                        'dw': max_dw,
+                        'ltp': max_ltp,
+                        'ltd': max_ltd,
+                        'rate': l23_rate,
+                        'inference_made': inference_made,
+                        'best_match_word': best_match_word,
+                        'best_sim': best_sim
+                    })
+
             sentence_counter += 1
+
+            # ─── Her Cümle İçin Canlı Log Bloğu ───────────────────────────────
+            avg_rpe_so_far = total_rpe / max(1, processed_in_epoch)
+            avg_dw_so_far  = total_dw  / max(1, processed_in_epoch)
+
+            print(f"\n┌─ Cümle {idx+1:>4}/{len(sentences)} │ Epoch {epoch+1}/{args.epochs_per_chunk} {'─'*25}")
+            print(f"│ Girdi   : \"{raw_sentence}\"")
+
+            if word_details:
+                print(f"│ Öğrenme ({len(word_details)} kelime):")
+                for wd in word_details:
+                    surprise = " ⚡SÜRPRİZ" if wd['rpe'] > 0.4 else "          "
+                    if wd['inference_made']:
+                        word_str = f"\"{wd['word']}\"→\"{wd['best_match_word']}\"({wd['best_sim']:.2f})"
+                    else:
+                        word_str = f"\"{wd['word']}\""
+                    print(f"│   {word_str:<42} RPE:{wd['rpe']:.3f}{surprise}  dW:{wd['dw']:.5f}  L23:{wd['rate']:.1f}%")
+            else:
+                print(f"│ Öğrenme : (bu cümlede öğrenilebilir kelime bulunamadı)")
+
+            if skipped_words:
+                skipped_strs = ', '.join(f'"{w}"(sim:{s:.2f})' for w, s in skipped_words)
+                print(f"│ Sözlük Dışı (çıkarım başarısız): {skipped_strs}")
+
+            # Cümle geneli kognitif yansıma
+            if word_details:
+                engine.reset_traces()
+                try:
+                    with torch.no_grad():
+                        sent_spikes = wernicke.perceive(raw_sentence)
+                        outputs = [engine.forward(sent_spikes[t], spiking=False) for t in range(sent_spikes.shape[0])]
+                        mean_output = torch.stack(outputs).mean(dim=0)
+                    top_vals, top_idxs = torch.topk(mean_output, 5)
+                    fired = [f"\"{vocab.id_to_word(i)}\"({v:.2f})"
+                             for v, i in zip(top_vals.tolist(), top_idxs.tolist()) if v > 0.005]
+                    print(f"│ Zihin   : {', '.join(fired) if fired else '(henüz zayıf bağlantı)'}")
+                except Exception as ex:
+                    print(f"│ Zihin   : [hata: {ex}]")
+
+            print(f"│ Kümül.  : Ort.RPE={avg_rpe_so_far:.4f}  Ort.dW={avg_dw_so_far:.6f}  İşlenen:{idx+1}/{len(sentences)}")
+            print(f"└{'─'*57}")
+            sys.stdout.flush()
+            # ──────────────────────────────────────────────────────────────────
 
             # Senkronize Uyku Döngüsü (Auto-Sleep)
             if sentence_counter % args.sleep_interval == 0:
                 save_weights(args.mx_path, engine)
                 run_sync_dream(args.mx_path, args.sleep_cycles, args.device)
                 load_weights(args.mx_path, engine, args.device)
-                print(f"  [Sleep-Sync] Eğitime devam ediliyor... (Cümle: {sentence_counter})")
+                print(f"\n[Sleep-Sync] Uyku tamamlandı. Eğitime devam... (Toplam cümle: {sentence_counter})")
 
-            # Telemetri
-            if idx > 0 and idx % 200 == 0:
-                avg_rpe = total_rpe / max(1, processed_in_epoch)
-                avg_dw = total_dw / max(1, processed_in_epoch)
-                print(f"    İlerleme: {idx:>6}/{len(sentences):<6} | Ort. RPE: {avg_rpe:.4f} | Ort. dW: {avg_dw:.6f}")
+        # Epoch nihai özeti
+        avg_rpe = total_rpe / max(1, processed_in_epoch)
+        avg_dw = total_dw / max(1, processed_in_epoch)
+        print(f"\n{'='*60}")
+        print(f"  [Epoch {epoch+1} Bitti] {idx+1}/{len(sentences)} cümle | Ort.RPE:{avg_rpe:.4f} | Ort.dW:{avg_dw:.6f}")
+        print(f"{'='*60}\n")
 
     return sentence_counter
+
 
 class DualLogger(object):
     """Hem terminale hem de bir dosyaya eşzamanlı olarak çıktı yazar."""
@@ -212,6 +324,7 @@ class DualLogger(object):
 
     def write(self, message):
         self.terminal.write(message)
+        self.terminal.flush()
         self.log.write(message)
         self.log.flush()
 
@@ -219,11 +332,14 @@ class DualLogger(object):
         self.terminal.flush()
         self.log.flush()
 
+    def isatty(self):
+        return hasattr(self.terminal, 'isatty') and self.terminal.isatty()
+
 def main():
     parser = argparse.ArgumentParser(description="Mergen Google Colab Büyük Eğitim Scripti")
-    parser.add_argument("--corpus_dir", type=str, required=True, help="Wikipedia .txt chunk dizini (Drive)")
-    parser.add_argument("--local_dir", type=str, default="/content/", help="Yerel hızlı I/O dizini")
-    parser.add_argument("--checkpoint_dir", type=str, required=True, help="Checkpoint Drive dizini")
+    parser.add_argument("--corpus_dir", type=str, default=None, help="Wikipedia .txt chunk dizini (Drive)")
+    parser.add_argument("--local_dir", type=str, default="./tmp_local/", help="Yerel hızlı I/O dizini")
+    parser.add_argument("--checkpoint_dir", type=str, default="./checkpoints/", help="Checkpoint Drive dizini")
     parser.add_argument("--core_path", type=str, default="data/training/core_curriculum_v1.txt", help="Çekirdek müfredat dosya yolu")
     parser.add_argument("--mx_path", type=str, default="./mergen_weights.mx", help="Weights dosya yolu")
     parser.add_argument("--vocab_path", type=str, default="./mergen_vocab.json", help="Vocab dosya yolu")
@@ -233,6 +349,8 @@ def main():
     parser.add_argument("--stdp_reward", type=float, default=1.0, help="STDP ödül çarpanı")
     parser.add_argument("--epochs_per_chunk", type=int, default=1, help="Her parça kaç kez dönülsün")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Cihaz (cuda/cpu)")
+    parser.add_argument("--embed_cache_size", type=int, default=8192, help="Wernicke gömme önbellek boyutu")
+    parser.add_argument("--compile", action="store_true", help="PyTorch 2.0 compile özelliğini aktif et")
     args = parser.parse_args()
 
     # Klasörleri doğrula
@@ -264,10 +382,14 @@ def main():
         time_window=50,
         encoding='rate',
         device=args.device,
+        embed_cache_size=args.embed_cache_size,
     )
 
     # Cortical Column (SNN Beyin)
     engine = CorticalColumn(n_pre=768, n_post=vocab_size, n_hidden=1024, device=args.device)
+    if args.compile and hasattr(torch, 'compile'):
+        print("[Colab-Train] PyTorch 2.0 derleme (torch.compile) etkinleştiriliyor...")
+        engine = torch.compile(engine)
 
     # Katman bazlı öğrenme hızlarını ayarla
     engine.L4.A_ltp = 0.0
@@ -377,6 +499,11 @@ def main():
         print(f"[Backup] Çekirdek müfredat tamamlandı durum kaydı yapıldı: {state_file_path}")
 
     # 4. Wikipedia Partları Eğitim Döngüsü
+    if args.corpus_dir is None or not os.path.exists(args.corpus_dir):
+        print("\n[Colab-Train] Wikipedia corpus dizini sağlanmadı veya bulunamadı.")
+        print("[Colab-Train] Çekirdek müfredat eğitimi tamamlandı. Yerel duman testi BAŞARILI! ☀️")
+        return
+
     all_chunks = sorted([f for f in os.listdir(args.corpus_dir) if f.endswith(".txt")])
     unprocessed_chunks = [c for c in all_chunks if c not in processed_chunks]
 

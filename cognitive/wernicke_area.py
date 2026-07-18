@@ -351,9 +351,13 @@ class WernickeArea(nn.Module):
         # Only neurons with sufficient magnitude actually fire
         threshold = 0.05
         active = magnitudes > threshold
-        for n in range(self.n_neurons):
-            if active[n]:
-                spikes[spike_times[n], n] = 1.0
+        # SORUN-08 FIX: Python for-dongusu vektorize edildi.
+        # nonzero() aktif noronlarin indekslerini dondurur;
+        # gelismis indeksleme scatter mantigiyla spikes matrisini doldurur.
+        active_idx = active.nonzero(as_tuple=True)[0]          # (k,)  k = aktif noron sayisi
+        if active_idx.numel() > 0:
+            times_for_active = spike_times[active_idx]          # (k,)  her aktif noronun spike zamani
+            spikes[times_for_active, active_idx] = 1.0          # tek seferde yerlesir
 
         return spikes
 

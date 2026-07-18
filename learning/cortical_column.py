@@ -396,7 +396,6 @@ class CorticalLayer(nn.Module):
         self.trace_pre.zero_()
         self.trace_post.zero_()
         self.eligibility.zero_()
-        self.firing_rate_ema.zero_()
 
     @torch.no_grad()
     def som_update(
@@ -738,6 +737,8 @@ class CorticalColumn(nn.Module):
             
             # Bir önceki internal durumdan (L23) şimdiki girdiyi tahmin et
             prediction = self.L6.forward(prev_state, spiking=True)
+            if prediction.dim() != pre_spikes.dim():
+                prediction = prediction.view_as(pre_spikes)
             # Tahmin hatasını hesapla ve Thalamus'a ilet
             error_spikes = (pre_spikes - prediction).clamp(min=0.0)
         else:
@@ -780,6 +781,8 @@ class CorticalColumn(nn.Module):
             if pre_spikes.dim() == 2:
                 prev_state = prev_state.unsqueeze(0).expand(pre_spikes.shape[0], -1)
             prediction = self.L6.forward(prev_state, spiking=True)
+            if prediction.dim() != pre_spikes.dim():
+                prediction = prediction.view_as(pre_spikes)
             error_spikes = (pre_spikes - prediction).clamp(min=0.0)
         else:
             error_spikes = pre_spikes
@@ -952,6 +955,10 @@ class CorticalColumn(nn.Module):
         """Tüm izler + tüm ağırlıklar (fresh init)."""
         self.reset_traces()
         with torch.no_grad():
+            self.L4.firing_rate_ema.zero_()
+            self.L23.firing_rate_ema.zero_()
+            self.L5.firing_rate_ema.zero_()
+            self.L6.firing_rate_ema.zero_()
             self.L4.weights.data.uniform_(0, 0.3)
             self.L23.weights.data.uniform_(0, 0.3)
             self.L5.weights.data.uniform_(0, 0.3)

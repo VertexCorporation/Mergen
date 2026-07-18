@@ -11,7 +11,7 @@ class EpisodicMemory:
         self.events: List[Dict[str, Any]] = []
 
     def add_event(self, text: str, concept_ids: List[int], weight: float = 1.0) -> int:
-        """Yeni bir anı ekler."""
+        """Yeni bir anı ekler. Eklenen öğenin 0-tabanlı indeksini döndürür."""
         self.events.append({
             'timestamp': datetime.now().isoformat(),
             'text': text,
@@ -20,7 +20,7 @@ class EpisodicMemory:
             'access_count': 0,
             'memory_type': 'episodic'
         })
-        return len(self.events)
+        return len(self.events) - 1  # BUG-02/SORUN-06 FIX: boyut değil, 0-tabanlı indeks
 
     def prune_old_events(self):
         """Önemsiz veya çok eski anıları temizler."""

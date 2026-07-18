@@ -87,10 +87,6 @@ class MergenBrain(nn.Module):
         if text_content and self.input_dim > 80:
             self._hash_text_into_vector(text_content, x)
 
-        x[100:min(200, self.input_dim)] += torch.randn(
-            min(100, max(0, self.input_dim - 100)), device=self.device
-        ) * 0.05
-
         return x
 
     def _hash_text_into_vector(self, text: str, vector: torch.Tensor) -> None:
@@ -119,6 +115,21 @@ class MergenBrain(nn.Module):
                 vector[dim3] += 0.2
 
         vector[start_dim:max_dim] = torch.clamp(vector[start_dim:max_dim], 0, 1)
+
+    # ── TD-13 FIX: Türkçe karakter normalizasyonu — tek yetkili yer ──
+    # Önceden recall_raw(), recall_all_about() ve learn_from_text() içinde
+    # aynı tablo 3 kez kopyalanmıştı. DRY prensibine aykırıydı.
+    _FOLD_TABLE = str.maketrans({
+        'ç': 'c', 'ğ': 'g', 'ı': 'i', 'İ': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
+        'Ç': 'c', 'Ğ': 'g', 'I': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u',
+    })
+
+    @staticmethod
+    def _fold_text(text: str) -> str:
+        """Türkçe özgün karakterleri ASCII karşılıklarına dönüştürür ve küçük harf yapar.
+        Sınıf düzeyinde tanımlı tek normalizasyon noktası (TD-13 DRY fix).
+        """
+        return (text or '').translate(MergenBrain._FOLD_TABLE).lower()
 
     def process(self, intent_report: Dict) -> Dict:
         self.step_count += 1
@@ -213,33 +224,35 @@ class MergenBrain(nn.Module):
         clean_text = text.strip()
         word_count = len(re.findall(r'\w+', clean_text))
         if store_in_kb and word_count >= 4 and len(clean_text) > 15:
-            is_dup = False
-            text_prefix = clean_text[:60].lower()
-            for existing in self.semantic.knowledge_base + self.episodic.events:
-                existing_prefix = existing['text'][:60].lower()
-                tokens_new = set(re.findall(r'\w+', text_prefix))
-                tokens_old = set(re.findall(r'\w+', existing_prefix))
-                if tokens_new and tokens_old:
-                    overlap = len(tokens_new & tokens_old) / max(len(tokens_new), len(tokens_old))
-                    if overlap > 0.7:
-                        if reward > existing.get('weight', 0):
-                            existing['weight'] = reward
-                        is_dup = True
-                        break
+            # BUG-02 FIX: Ekleme öncesinde birleşik listenin toplam boyutunu kaydet.
+            # Bu değer, yeni girişin recall() tarafından kullanılan
+            # (semantic.knowledge_base + episodic.events) birleşik listedeki
+            # mutlak (0-tabanlı) indeksidir.
+            all_facts_before = len(self.semantic) + len(self.episodic)
 
-            if not is_dup:
-                # episodic vs semantic ayrımı
-                is_episodic = (intent_report is not None)
-                if is_episodic:
-                    kb_idx = self.episodic.add_event(clean_text, unique_ids, reward)
-                else:
-                    kb_idx = self.semantic.add_fact(clean_text, unique_ids, reward)
-                    
-                # Indexleme şimdilik sadece semantik için tutulabilir, ya da karmaşıklaşmaması için her ikisine de.
-                # Şimdilik concept_index sadece uyumluluk için var, semantic üzerinden indexleyelim.
-                for cid in unique_ids:
-                    if cid not in self.concept_index:
-                        self.concept_index[cid] = []
+            # episodic vs semantic ayrımı
+            is_episodic = (intent_report is not None)
+            if is_episodic:
+                # add_event() içindeki deduplication yoktur; dışarıdan kontrol gerekiyorsa
+                # burada yapılabilir. Şimdilik doğrudan ekle.
+                self.episodic.add_event(clean_text, unique_ids, reward)
+            else:
+                # add_fact() kendi içinde tam-eşleşme deduplication yapar.
+                # Eğer duplicate bulunursa mevcut öğeyi güncelleyip o öğenin
+                # indeksini döndürür — all_facts_before zaten o noktayı göstermez,
+                # ancak concept_index için yeni bir giriş eklenmemesi sağlanır.
+                result_idx = self.semantic.add_fact(clean_text, unique_ids, reward)
+                # Semantic add_fact duplicate bulduysa len değişmedi, o zaman
+                # kb_idx'i birleşik listede gerçek konuma çevir.
+                all_facts_before = result_idx  # semantic'teki 0-tabanlı indeks = birleşik listede de aynı konum
+
+            kb_idx = all_facts_before
+
+            for cid in unique_ids:
+                if cid not in self.concept_index:
+                    self.concept_index[cid] = []
+                # Aynı kb_idx'i tekrar eklememek için kontrol
+                if kb_idx not in self.concept_index[cid]:
                     self.concept_index[cid].append(kb_idx)
 
         new_pred = self.mx2(h)
@@ -337,18 +350,12 @@ class MergenBrain(nn.Module):
             'or', 'but', 'that', 'this', 'it', 'as', 'what',
         }
 
-        def _fold(t_str):
-            table = str.maketrans({
-                'ç': 'c', 'ğ': 'g', 'ı': 'i', 'i': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
-                'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'I': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u',
-            })
-            return (t_str or '').translate(table).lower()
-
         def _tokens(text):
-            raw = re.findall(r'\w+', _fold(text))
+            # TD-13 FIX: yerel _fold() kaldirildi, sinif metodu kullaniliyor
+            raw = re.findall(r'\w+', self._fold_text(text))
             res = set()
             for t in raw:
-                if t.isdigit() or t in {'on', 'uc', 'üç'}:
+                if t.isdigit() or t in {'on', 'uc', 'uc'}:
                     res.add(t)
                 elif len(t) > 2 and t not in _STOP:
                     res.add(t)
@@ -369,20 +376,23 @@ class MergenBrain(nn.Module):
             for qt in query_toks:
                 if qt in fact_toks:
                     continue
-                turkish_suffixes = [_fold(s) for s in [
-                                    'lar', 'ler', 'ımız', 'imiz', 'umuz', 'ümüz',
-                                    'ınız', 'iniz', 'unuz', 'ünüz',
-                                    'ından', 'inden', 'undan', 'ünden',
-                                    'ından', 'inden', 'sından', 'sinden',
-                                    'dan', 'den', 'tan', 'ten',
-                                    'a', 'e', 'da', 'de', 'ta', 'te',
-                                    'ı', 'i', 'u', 'ü', 'yı', 'yi', 'yu', 'yü',
-                                    'nın', 'nin', 'nun', 'nün',
-                                    'ca', 'ce', 'ça', 'çe',
-                                    'ken', 'ki', 'leyin', 'ceğiz',
-                                    'ım', 'im', 'um', 'üm',
-                                    'ın', 'in', 'un', 'ün',
-                                    'mak', 'mek']]
+                # Suffix listesi: _fold_text() ASCII'ye donusturdugundan
+                # Turkce karakterler zaten normalize; dogrudan ASCII yaziyoruz.
+                turkish_suffixes = [
+                    'lar', 'ler', 'imiz', 'imiz', 'umuz', 'umuz',
+                    'iniz', 'iniz', 'unuz', 'unuz',
+                    'indan', 'inden', 'undan', 'unden',
+                    'indan', 'inden', 'sindan', 'sinden',
+                    'dan', 'den', 'tan', 'ten',
+                    'a', 'e', 'da', 'de', 'ta', 'te',
+                    'i', 'i', 'u', 'u', 'yi', 'yi', 'yu', 'yu',
+                    'nin', 'nin', 'nun', 'nun',
+                    'ca', 'ce', 'ca', 'ce',
+                    'ken', 'ki', 'leyin', 'cegiz',
+                    'im', 'im', 'um', 'um',
+                    'in', 'in', 'un', 'un',
+                    'mak', 'mek']
+
                 for ft in fact_toks:
                     matched = False
                     for suf in turkish_suffixes:
@@ -440,19 +450,13 @@ class MergenBrain(nn.Module):
         if not self.semantic.knowledge_base and not self.episodic.events:
             return []
 
-        def _fold(t_str):
-            table = str.maketrans({
-                'ç': 'c', 'ğ': 'g', 'ı': 'i', 'i': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
-                'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'I': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u',
-            })
-            return (t_str or '').translate(table).lower()
-
-        subj = _fold(subject.strip())
+        # TD-13 FIX: yerel _fold() kaldirildi, sinif metodu kullaniliyor
+        subj = self._fold_text(subject.strip())
         results = []
         seen = set()
 
         for kb_idx, fact in enumerate(self.semantic.knowledge_base + self.episodic.events):
-            raw_tokens = [t.lower() for t in re.findall(r'\w+', _fold(fact['text']))]
+            raw_tokens = [t.lower() for t in re.findall(r'\w+', self._fold_text(fact['text']))]
             if not raw_tokens:
                 continue
 
@@ -464,14 +468,15 @@ class MergenBrain(nn.Module):
                 if subj in raw_tokens:
                     match = True
                 if not match:
-                    suffixes = [_fold(s) for s in [
-                                'lar', 'ler', 'ı', 'i', 'u', 'ü', 'ın', 'in', 'un', 'ün',
-                                'a', 'e', 'da', 'de', 'ta', 'te', 'dan', 'den', 'tan', 'ten',
-                                'ca', 'ce',
-                                'ımız', 'imiz', 'umuz', 'ümüz',
-                                'sı', 'si', 'su', 'sü',
-                                'nın', 'nin', 'nun', 'nün',
-                                'dır', 'dir', 'dur', 'dür', 'tır', 'tir', 'tur', 'tür']]
+                    # Suffix listesi ASCII; _fold_text() token'lari zaten normalize etti.
+                    suffixes = [
+                        'lar', 'ler', 'i', 'i', 'u', 'u', 'in', 'in', 'un', 'un',
+                        'a', 'e', 'da', 'de', 'ta', 'te', 'dan', 'den', 'tan', 'ten',
+                        'ca', 'ce',
+                        'imiz', 'imiz', 'umuz', 'umuz',
+                        'si', 'si', 'su', 'su',
+                        'nin', 'nin', 'nun', 'nun',
+                        'dir', 'dir', 'dur', 'dur', 'tir', 'tir', 'tur', 'tur']
                     for t in raw_tokens:
                         for suffix in suffixes:
                             if t == subj + suffix or t == subj + suffix[:-1]:

@@ -73,14 +73,14 @@ class MergenVocab:
         'kuvvet', 'ivme', 'hız', 'momentum', 'moment', 'vektör',
         'skaler', 'tensör', 'alan', 'potansiyel', 'kinetik',
         # Mathematics
-        'integral', 'türev', 'limit', 'matris', 'determinant', 'vektör',
+        'integral', 'türev', 'limit', 'matris', 'determinant',
         'fonksiyon', 'denklem', 'türbülans', 'logaritma', 'eksponansiyel',
         'topoloji', 'manifold', 'eğri', 'yüzey', 'hiperbolik', 'fraktal',
         'stokastik', 'olasılık', 'dağılım', 'varyans', 'korelasyon',
         'gradyan', 'divergens', 'rotasyon', 'diferansiyel', 'lineer',
         'nonlineer', 'kaos', 'attraktör', 'bifurkasyon', 'salınım',
         # English equivalents
-        'quantum', 'entropy', 'relativity', 'singularity', 'manifold',
+        'quantum', 'entropy', 'relativity', 'singularity',
         'gradient', 'tensor', 'eigenvalue', 'eigenvector', 'laplacian',
     ]
 
@@ -138,7 +138,7 @@ class MergenVocab:
         'madde', 'ruh', 'evrim', 'oluş', 'değişim', 'devinim',
         # Concepts
         'anlam', 'amaç', 'neden', 'sonuç', 'ilke', 'yasa', 'düzen',
-        'kaos', 'denge', 'uyum', 'çelişki', 'diyalektik', 'sentez',
+        'kaos', 'denge', 'uyum', 'diyalektik',
         'tez', 'antitez', 'aşkınlık', 'içkinlik', 'mutlak', 'göreli',
         # English equivalents
         'consciousness', 'sentience', 'awareness', 'existence',
@@ -243,7 +243,7 @@ class MergenVocab:
         'hem', 'hem-de', 'ise', 'oysa', 'halbuki', 'rağmen',
         # Causal
         'çünkü', 'zira', 'dolayısıyla', 'bu-yüzden', 'bu-nedenle',
-        'sonuç-olarak', 'dolayısıyla', 'böylece', 'dolayısı',
+        'sonuç-olarak', 'böylece', 'dolayısı',
         'sebebiyle', 'ötürü', 'varolarak',
         # Temporal
         'şimdi', 'önce', 'sonra', 'ardından', 'eşzamanlı', 'aynı-anda',
@@ -362,11 +362,11 @@ class MergenVocab:
         # Sosyoloji ve kültür
         'kültür', 'medeniyet', 'uygarlık', 'gelenek', 'görenek', 'norm',
         'değer', 'kimlik', 'cinsiyet', 'ırk', 'etnik', 'din', 'inanç',
-        'ideoloji', 'milliyetçilik', 'küreselleşme', 'göç', 'azınlık',
+        'ideoloji', 'milliyetçilik', 'göç', 'azınlık',
         'çoğunluk', 'dayanışma', 'çatışma', 'uzlaşma', 'diyalog',
         # Tarih
         'tarih', 'antik', 'ortaçağ', 'rönesans', 'aydınlanma', 'devrim',
-        'reform', 'sömürgecilik', 'bağımsızlık', 'modernleşme', 'sanayi',
+        'reform', 'sömürgecilik', 'modernleşme', 'sanayi',
     ]
 
     # ═════════════════════════════════════════════════════════
@@ -375,8 +375,8 @@ class MergenVocab:
     EXTENDED_VERBS = [
         # Hareket
         'gitmek', 'gelmek', 'dönmek', 'geçmek', 'girmek', 'çıkmak',
-        'inmek', 'çıkmak', 'atlamak', 'düşmek', 'kalkmak', 'oturmak',
-        'uzanmak', 'eğilmek', 'dönmek', 'çevrilmek', 'sarılmak',
+        'inmek', 'atlamak', 'düşmek', 'kalkmak', 'oturmak',
+        'uzanmak', 'eğilmek', 'çevrilmek', 'sarılmak',
         # Algı
         'görmek', 'bakmak', 'izlemek', 'gözlemek', 'fark-etmek',
         'duymak', 'dinlemek', 'hissetmek', 'dokunmak', 'tatmak',
@@ -419,7 +419,7 @@ class MergenVocab:
         # Sosyal
         'sosyal', 'yalnız', 'dostane', 'düşmanca', 'resmi', 'gayriresmi',
         'kamusal', 'özel', 'bireysel', 'kolektif', 'ulusal', 'evrensel',
-        'yerel', 'küresel', 'geleneksel', 'modern', 'liberal', 'muhafazakar',
+        'yerel', 'küresel', 'geleneksel', 'liberal', 'muhafazakar',
     ]
 
     # ═════════════════════════════════════════════════════════
@@ -463,7 +463,7 @@ class MergenVocab:
         'mor', 'turuncu', 'gri', 'pembe', 'altın', 'gümüş',
         # Sayılar (sözel)
         'sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz',
-        'dokuz', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'yüz', 'bin',
+        'dokuz', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'bin',
         # Yönler ve konumlar
         'sol', 'sağ', 'yukarı', 'aşağı', 'ileri', 'geri', 'iç', 'dış',
         'ön', 'arka', 'yan', 'karşı', 'üst', 'alt', 'orta', 'kenar',

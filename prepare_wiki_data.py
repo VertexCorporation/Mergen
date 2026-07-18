@@ -22,13 +22,13 @@ logging.basicConfig(
 
 class WikiConfig:
     MIN_WORDS: int = 7
-    MAX_WORDS: int = 18
+    MAX_WORDS: int = 35
     MIN_ALPHA_RATIO: float = 0.75
-    MAX_DIGITS: int = 5
+    MAX_DIGITS: int = 15
     SENTENCES_PER_PART: int = 15000
 
     BAD_STARTERS: Set[str] = {
-        "bu", "o", "şu", "bunlar", "şunlar", "onlar", "ayrıca", "ancak", 
+        "şu", "bunlar", "şunlar", "onlar", "ayrıca", "ancak", 
         "fakat", "ama", "çünkü", "zira", "nitekim", "bununla", "bundan",
         "ve", "veya", "oysa", "halbuki", "bununla birlikte", "bunun yanı sıra"
     }
@@ -112,7 +112,7 @@ class WikiTextProcessor:
         lower_sentence = sentence.lower()
         if any(bad in lower_sentence for bad in WikiConfig.BAD_PATTERNS):
             return False
-        if "|" in sentence or "=" in sentence or "*" in sentence:
+        if "|" in sentence:
             return False
 
         alpha_chars = len(re.findall(r"[a-zA-ZçğıöşüÇĞİÖŞÜ]", sentence))

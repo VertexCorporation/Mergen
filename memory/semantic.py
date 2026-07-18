@@ -10,14 +10,14 @@ class SemanticMemory:
         self.knowledge_base: List[Dict[str, Any]] = []
 
     def add_fact(self, text: str, concept_ids: List[int], weight: float = 1.0) -> int:
-        """Yeni bir gerçek ekler. Eğer benzer bir gerçek varsa ağırlığını artırır."""
+        """Yeni bir gerçek ekler. Eklenen/bulunan öğenin 0-tabanlı indeksini döndürür."""
         # Basit bir deduplication mantığı (Eğer tamamen aynıysa)
-        for fact in self.knowledge_base:
+        for idx, fact in enumerate(self.knowledge_base):
             if fact['text'].lower() == text.lower():
                 fact['weight'] = max(fact.get('weight', 0.0), weight)
                 fact['access_count'] = fact.get('access_count', 0) + 1
-                return len(self.knowledge_base)
-                
+                return idx  # BUG-02/SORUN-06 FIX: mevcut öğenin gerçek 0-tabanlı indeksi
+
         self.knowledge_base.append({
             'text': text,
             'concept_ids': concept_ids,
@@ -25,7 +25,7 @@ class SemanticMemory:
             'access_count': 0,
             'memory_type': 'semantic'
         })
-        return len(self.knowledge_base)
+        return len(self.knowledge_base) - 1  # BUG-02/SORUN-06 FIX: boyut değil, 0-tabanlı indeks
 
     def to_list(self) -> List[Dict]:
         return self.knowledge_base

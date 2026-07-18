@@ -48,6 +48,5 @@ scratch/
 backup_poisoned/
 archive/
 
-# User private docs
 walkthrough.md
 PROJECT_MEMORY_BANK.md

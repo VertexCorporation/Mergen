@@ -34,7 +34,12 @@ class ThalamicFilter:
         Eşiğin altında kalan aktivasyonları 0'a indirger.
         """
         if spike_train is None:
-            return None
+            # BUG-05 FIX: Sessizce None döndürmek type-hint'i ihlal eder ve
+            # downstream'de AttributeError üretir. Fail-fast ile erken hata fırlat.
+            raise ValueError(
+                "ThalamicFilter.apply_gating(): spike_train cannot be None. "
+                "Ensure WernickeArea.perceive() returns a valid Tensor before calling gating."
+            )
 
         threshold = self._calculate_dynamic_threshold()
 
